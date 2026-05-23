@@ -1,0 +1,496 @@
+(function(){
+'use strict';
+
+/* ─── FIREBASE CONFIG ─── */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSy...vmuo",
+  authDomain: "ainvested-703ec.firebaseapp.com",
+  databaseURL: "https://ainvested-703ec-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "ainvested-703ec",
+  storageBucket: "ainvested-703ec.firebasestorage.app",
+  messagingSenderId: "453797298902",
+  appId: "1:453797298902:web:9c4adbc200e23dadaaff77",
+  measurementId: "G-X7BH0LW5BT"
+};
+
+firebase.initializeApp(FIREBASE_CONFIG);
+const auth = firebase.auth();
+const db = firebase.database();
+const APP_VER = 'v1.0-maintained';
+
+/* ─── STATE ─── */
+let currentUser = null;
+let authReady = false;
+let activeVehicle = null;   // vehicle id
+let editingRecord = null;   // { type, vehicleId, recordId }
+let settings = { units:'metric', currency:'RM' };
+let _vehCallback = null;
+
+/* ─── HELPERS ─── */
+function $(id){ return document.getElementById(id); }
+function now(){ return new Date(); }
+function fmtDate(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+function fmtMoney(n,sym){ const s=sym||settings.currency||'RM'; return s+' '+n.toFixed(2); }
+function esc(s){ const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+function toNum(v){ const n=parseFloat(v); return isNaN(n)?0:n; }
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  $(id).classList.add('active');
+}
+function todayInput(){ $('fu-date').value=fmtDate(now()); $('mt-date').value=fmtDate(now()); $('ex-date').value=fmtDate(now()); $('tr-date').value=fmtDate(now()); }
+
+/* ─── REF BUILDERS ─── */
+function uRef(path){ return db.ref('maintained/'+currentUser.uid+(path?('/'+path):'')); }
+function vRef(){ return uRef('vehicles'); }
+function fillRef(vid){ return uRef('fillups/'+vid); }
+function maintRef(vid){ return uRef('maintenance/'+vid); }
+function exp2Ref(vid){ return uRef('expenses/'+vid); }
+function tripRef(vid){ return uRef('trips/'+vid); }
+
+/* ─── LISTENERS ─── */
+function attachListeners(uid){
+  detachListeners();
+  _vehCallback = snap=>{
+    if(!currentUser || currentUser.uid!==uid) return;
+    renderDash();
+  };
+  uRef().on('value', _vehCallback);
+}
+function detachListeners(){
+  if(_vehCallback && currentUser){ uRef().off('value', _vehCallback); _vehCallback=null; }
+}
+
+/* ─── AUTH ─── */
+  auth.onAuthStateChanged(user=>{
+  authReady = true;
+  if(user){
+    if(!currentUser){
+      currentUser = { uid:user.uid, name:user.displayName||'User', email:user.email };
+      loadUserProfile(user.uid).then(p=>{
+        if(p?.name){ currentUser.name = p.name; }
+        $('dash-greeting').textContent = 'Hello, '+currentUser.name;
+        loadSettings(user.uid).then(s=>{ if(s) settings = {...settings,...s}; });
+        showScreen('dash-screen'); renderDash(); attachListeners(user.uid);
+      });
+    }
+  }else{
+    currentUser = null; activeVehicle = null; editingRecord = null;
+    detachListeners(); showScreen('login-screen');
+  }
+});
+
+function loadUserProfile(uid){ return uRef('profile').once('value').then(s=>s.val()||null); }
+function saveUserProfile(uid, name){ return uRef('profile').update({ name, updatedAt: firebase.database.ServerValue.TIMESTAMP }); }
+function loadSettings(uid){ return uRef('settings').once('value').then(s=>s.val()||{}); }
+function saveSettings(uid, key, value){ return uRef('settings').update({ [key]: value }); }
+
+/* ─── LOGIN ─── */
+$('btn-login').addEventListener('click',doLogin);
+$('login-password').addEventListener('keydown',e=>{ if(e.key==='Enter') doLogin(); });
+
+function doLogin(){
+  const email=$('login-email').value.trim();
+  const password=$('login-password').value;
+  const name=$('login-name').value.trim();
+  if(!email||!password){ alert('Enter email and password'); return; }
+  if(!authReady){ alert('Auth initializing, try again in 2 seconds'); return; }
+  auth.signInWithEmailAndPassword(email, password)
+    .then(cred=>{ currentUser = { uid:cred.user.uid, name:name||cred.user.displayName||'User', email:cred.user.email }; if(name) saveUserProfile(cred.user.uid,name); $('dash-greeting').textContent='Hello, '+currentUser.name; showScreen('dash-screen'); renderDash(); attachListeners(cred.user.uid); })
+    .catch(err=>{
+      if(err.code==='auth/user-not-found'){
+        if(!name){ alert('Enter your name to create a new account'); return; }
+        if(password.length<6){ alert('Password must be at least 6 characters'); return; }
+        return auth.createUserWithEmailAndPassword(email,password)
+          .then(cred=>{ currentUser={uid:cred.user.uid,name,email:cred.user.email}; saveUserProfile(cred.user.uid,name); $('dash-greeting').textContent='Hello, '+currentUser.name; showScreen('dash-screen'); renderDash(); attachListeners(cred.user.uid); });
+      }
+      alert(err.message);
+    });
+}
+
+$('btn-switch-user').addEventListener('click',()=>{ auth.signOut().then(()=>{ currentUser=null; activeVehicle=null; editingRecord=null; detachListeners(); $('login-email').value=''; $('login-name').value=''; $('login-password').value=''; showScreen('login-screen'); }); });
+
+/* ─── DASHBOARD ─── */
+function renderDash(){
+  if(!currentUser) return;
+  const uid=currentUser.uid;
+  vRef().once('value').then(snap=>{
+    const vehicles=snap.val()||{};
+    const vids=Object.keys(vehicles);
+    // Vehicle cards
+    const container=$('vehicle-list');
+    let h='<button class="vehicle-card" id="btn-new-vehicle" style="justify-content:center;color:var(--muted);border-style:dashed"><span style="font-size:1.2rem;font-weight:700">+ Add Vehicle</span></button>';
+    vids.forEach(id=>{
+      const v=vehicles[id]; const odo=toNum(v.odometer);
+      h+=`<div class="vehicle-card" data-vid="${esc(id)}"><div><div class="vehicle-name">${esc(v.make||'')} ${esc(v.model||'')} ${esc(v.year||'')}</div><div class="vehicle-plate">${esc(v.plate||'')} · ${esc(v.fuelType||'Petrol')}</div></div><div class="vehicle-km">${odo.toLocaleString()} km</div></div>`;
+    });
+    container.innerHTML=h;
+    container.querySelectorAll('.vehicle-card[data-vid]').forEach(c=>c.addEventListener('click',()=>openVehicle(c.dataset.vid,vehicles[c.dataset.vid])));
+    $('btn-new-vehicle').addEventListener('click',()=>{ showScreen('add-vehicle-screen'); resetVehicleForm(); });
+    // Totals across all vehicles (this month fuel, this year service)
+    const monthPrefix=fmtDate(now()).slice(0,7);
+    const yearPrefix=String(now().getFullYear());
+    Promise.all(vids.map(vid=>Promise.all([fillRef(vid).once('value'),maintRef(vid).once('value')]))).then(results=>{
+      let fuelTotal=0, svcTotal=0;
+      results.forEach(([fSnap,mSnap])=>{
+        const fills=fSnap.val()||{}, svcs=mSnap.val()||{};
+        Object.values(fills).forEach(o=>{ if((o.date||'').startsWith(monthPrefix)) fuelTotal+=toNum(o.totalCost); });
+        Object.values(svcs).forEach(o=>{ if((o.date||'').startsWith(yearPrefix)) svcTotal+=toNum(o.totalCost); });
+      });
+      $('hero-fuel').textContent = fmtMoney(fuelTotal);
+      $('hero-service').textContent = fmtMoney(svcTotal);
+    });
+    // Recent global items (all types interleaved, latest 15)
+    const recentPromises = vids.map(vid=>Promise.all([
+      fillRef(vid).once('value').then(s=>s.val()),
+      maintRef(vid).once('value').then(s=>s.val()),
+      exp2Ref(vid).once('value').then(s=>s.val()),
+      tripRef(vid).once('value').then(s=>s.val())
+    ]));
+    Promise.all(recentPromises).then(results=>{
+      let items=[];
+      results.forEach(([fills,svcs,exps,trips],i)=>{
+        const vid=vids[i];
+        if(fills) Object.entries(fills).forEach(([id,o])=>items.push({t:'Fuel',id,vid,date:o.date||'',label:`Fuel · ${(toNum(o.liters)).toFixed(2)}L`,amount:toNum(o.totalCost),meta:`${esc(vehicles[vid]?.plate||vid)} @ ${toNum(o.odometer).toLocaleString()} km`}));
+        if(svcs) Object.entries(svcs).forEach(([id,o])=>items.push({t:'Service',id,vid,date:o.date||'',label:o.items||'Service',amount:toNum(o.totalCost),meta:`${esc(vehicles[vid]?.plate||vid)} · ${esc(o.shop||'')}`}));
+        if(exps) Object.entries(exps).forEach(([id,o])=>items.push({t:'Expense',id,vid,date:o.date||'',label:`${o.category||'Expense'} · ${o.description||''}`,amount:toNum(o.amount),meta:esc(vehicles[vid]?.plate||vid)}));
+        if(trips) Object.entries(trips).forEach(([id,o])=>items.push({t:'Trip',id,vid,date:o.date||'',label:`Trip · ${o.purpose||''}`,amount:0,meta:`${esc(vehicles[vid]?.plate||vid)} · ${toNum(o.distance).toLocaleString()} km`}));
+      });
+      items.sort((a,b)=>b.date.localeCompare(a.date));
+      $('recent-list').innerHTML=items.slice(0,15).map(it=>`<div class="item"><div class="item-left"><div class="item-name">${esc(it.label)}</div><div class="item-meta">${esc(it.date)} · ${esc(it.meta)}</div></div><div class="item-amount">${it.amount?fmtMoney(it.amount):''}</div></div>`).join('') || '<div class="item"><div class="item-left"><div class="item-meta">No records yet</div></div></div>';
+    });
+  });
+}
+
+/* ─── VEHICLE ─── */
+function openVehicle(vid, v){
+  activeVehicle = vid;
+  $('vehicle-title').textContent = `${esc(v.make||'')} ${esc(v.model||'')} ${esc(v.year||'')}`;
+  $('vehicle-meta').textContent = `${esc(v.plate||'')} · ${esc(v.fuelType||'Petrol')}`;
+  $('vehicle-odo').textContent = toNum(v.odometer).toLocaleString();
+  showScreen('vehicle-screen');
+  loadVehicleTabs(vid);
+  // Set default trip start from last end
+  tripRef(vid).once('value').then(s=>{ const o=s.val()||{}; const arr=Object.values(o).sort((a,b)=>b.date?.localeCompare(a.date)||0); if(arr[0]) $('tr-start').value = arr[0].endOdo||''; });
+}
+
+function loadVehicleTabs(vid){
+  // Stats
+  fillRef(vid).once('value').then(s=>{
+    const fills=s.val()||{};
+    const arr=Object.values(fills).sort((a,b)=> (a.date||'').localeCompare(b.date||''));
+    let totalL=0, totalDist=0, totalCost=0;
+    for(let i=1;i<arr.length;i++){
+      const prev=arr[i-1], cur=arr[i];
+      if(cur.partial) continue;
+      const dist=toNum(cur.odometer)-toNum(prev.odometer);
+      if(dist>0 && toNum(cur.liters)>0){ totalDist+=dist; totalL+=toNum(cur.liters); totalCost+=toNum(cur.totalCost); }
+    }
+    if(totalDist>0 && totalL>0){
+      const lp100 = (totalL/totalDist)*100;
+      $('stat-fc').textContent = lp100.toFixed(1);
+      $('stat-costkm').textContent = fmtMoney(totalCost/totalDist);
+      $('stat-totalfuel').textContent = totalL.toFixed(1)+' L';
+    } else {
+      $('stat-fc').textContent = '—'; $('stat-costkm').textContent = '—'; $('stat-totalfuel').textContent = '—';
+    }
+  });
+  // Last service
+  maintRef(vid).once('value').then(s=>{
+    const sv=s.val()||{};
+    const arr=Object.values(sv).sort((a,b)=> (b.date||'').localeCompare(a.date||''));
+    $('stat-lastsvc').textContent = arr[0]?.date || '—';
+  });
+  // Fill-up list
+  fillRef(vid).once('value').then(s=>{
+    const o=s.val()||{};
+    let items=Object.entries(o).map(([id,r])=>({id,...r})).sort((a,b)=> (b.date||'').localeCompare(a.date||''));
+    $('fillup-list').innerHTML = items.length ? items.map(r=>`<div class="item" data-fid="${esc(r.id)}"><div class="item-left"><div class="item-name">${fmtDate2(r.date)} · ${toNum(r.liters).toFixed(2)}L @ ${fmtMoney(toNum(r.ppl),'')}/L</div><div class="item-meta">Odo ${toNum(r.odometer).toLocaleString()} km ${r.partial?'(partial)':''}</div></div><div class="item-amount">${fmtMoney(toNum(r.totalCost))}</div></div>`).join('') : '<div class="item"><div class="item-left"><div class="item-meta">No fill-ups</div></div></div>';
+    $('fillup-list').querySelectorAll('.item[data-fid]').forEach(el=>el.addEventListener('click',()=>editFillup(vid,el.dataset.fid)));
+  });
+  // Maintenance list
+  maintRef(vid).once('value').then(s=>{
+    const o=s.val()||{};
+    let items=Object.entries(o).map(([id,r])=>({id,...r})).sort((a,b)=> (b.date||'').localeCompare(a.date||''));
+    $('maintenance-list').innerHTML = items.length ? items.map(r=>`<div class="item" data-mid="${esc(r.id)}"><div class="item-left"><div class="item-name">${esc(r.items||'Service')}</div><div class="item-meta">${fmtDate2(r.date)} · ${esc(r.shop||'')} · Odo ${toNum(r.odometer).toLocaleString()}</div></div><div class="item-amount">${fmtMoney(toNum(r.totalCost))}</div></div>`).join('') : '<div class="item"><div class="item-left"><div class="item-meta">No service records</div></div></div>';
+    $('maintenance-list').querySelectorAll('.item[data-mid]').forEach(el=>el.addEventListener('click',()=>editMaintenance(vid,el.dataset.mid)));
+  });
+  // Expense list
+  exp2Ref(vid).once('value').then(s=>{
+    const o=s.val()||{};
+    let items=Object.entries(o).map(([id,r])=>({id,...r})).sort((a,b)=> (b.date||'').localeCompare(a.date||''));
+    $('expense-list').innerHTML = items.length ? items.map(r=>`<div class="item" data-eid="${esc(r.id)}"><div class="item-left"><div class="item-name">${esc(r.category||'Expense')}${r.description?' · '+esc(r.description):''}</div><div class="item-meta">${fmtDate2(r.date)}</div></div><div class="item-amount">${fmtMoney(toNum(r.amount))}</div></div>`).join('') : '<div class="item"><div class="item-left"><div class="item-meta">No expenses</div></div></div>';
+    $('expense-list').querySelectorAll('.item[data-eid]').forEach(el=>el.addEventListener('click',()=>editExpense(vid,el.dataset.eid)));
+  });
+  // Trip list
+  tripRef(vid).once('value').then(s=>{
+    const o=s.val()||{};
+    let items=Object.entries(o).map(([id,r])=>({id,...r})).sort((a,b)=> (b.date||'').localeCompare(a.date||''));
+    $('trip-list').innerHTML = items.length ? items.map(r=>`<div class="item" data-tid="${esc(r.id)}"><div class="item-left"><div class="item-name">${esc(r.purpose||'Trip')}</div><div class="item-meta">${fmtDate2(r.date)} · ${toNum(r.startOdo).toLocaleString()} → ${toNum(r.endOdo).toLocaleString()} km</div></div><div class="item-amount">${toNum(r.distance).toLocaleString()} km</div></div>`).join('') : '<div class="item"><div class="item-left"><div class="item-meta">No trips</div></div></div>';
+    $('trip-list').querySelectorAll('.item[data-tid]').forEach(el=>el.addEventListener('click',()=>editTrip(vid,el.dataset.tid)));
+  });
+}
+
+function fmtDate2(d){ return d ? d : ''; }
+
+/* ─── TABS ─── */
+document.querySelectorAll('.tab-btn').forEach(b=>{
+  b.addEventListener('click',()=>{
+    document.querySelectorAll('.tab-btn').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    $(`tab-${b.dataset.tab}`).classList.add('active');
+  });
+});
+
+$('btn-vehicle-back').addEventListener('click',()=>{ activeVehicle=null; showScreen('dash-screen'); renderDash(); });
+
+/* ─── ADD RECORD FAB ─── */
+let fabAction='';
+$('btn-add-record').addEventListener('click',()=>{
+  if(!activeVehicle) return;
+  const el=document.querySelector('.tab-btn.active');
+  const tab=el?el.dataset.tab:'fillups';
+  if(tab==='stats'||tab==='fillups'){ resetFillupForm(); showScreen('add-fillup-screen'); }
+  else if(tab==='maintenance'){ resetMaintenanceForm(); showScreen('add-maintenance-screen'); }
+  else if(tab==='expenses'){ resetExpenseForm(); showScreen('add-expense-screen'); }
+  else if(tab==='trips'){ resetTripForm(); showScreen('add-trip-screen'); }
+});
+
+/* ─── VEHICLE FORM ─── */
+function resetVehicleForm(){ $('av-plate').value=''; $('av-make').value=''; $('av-model').value=''; $('av-year').value=''; $('av-fueltype').value='Petrol'; $('av-odo').value=''; editingRecord=null; }
+$('btn-av-back').addEventListener('click',()=>showScreen('dash-screen'));
+$('btn-save-vehicle').addEventListener('click',()=>{
+  const v={ plate:$('av-plate').value.trim(), make:$('av-make').value.trim(), model:$('av-model').value.trim(), year:$('av-year').value.trim(), fuelType:$('av-fueltype').value, odometer: toNum($('av-odo').value), createdAt: firebase.database.ServerValue.TIMESTAMP };
+  if(!v.plate){ alert('Plate number is required'); return; }
+  const key = editingRecord && editingRecord.type==='vehicle' ? editingRecord.recordId : vRef().push().key;
+  vRef().child(key).update(v).then(()=>{ activeVehicle=key; showScreen('vehicle-screen'); openVehicle(key, v); });
+});
+
+/* ─── FILL-UP FORM ─── */
+function resetFillupForm(){ todayInput(); $('fu-odo').value=''; $('fu-liters').value=''; $('fu-ppl').value=''; $('fu-total').textContent='0.00'; $('fu-partial').checked=false; editingRecord=null; $('btn-delete-fillup').classList.add('hidden');
+  if(activeVehicle) vRef().child(activeVehicle).once('value').then(s=>{ const v=s.val(); if(v) $('fu-odo').value=toNum(v.odometer)||''; });
+}
+function calcFuelTotal(){ const L=toNum($('fu-liters').value), ppl=toNum($('fu-ppl').value); $('fu-total').textContent = (L*ppl).toFixed(2); }
+['input','change'].forEach(ev=>{ $('fu-liters').addEventListener(ev,calcFuelTotal); $('fu-ppl').addEventListener(ev,calcFuelTotal); });
+
+$('btn-fu-back').addEventListener('click',()=>showScreen('vehicle-screen'));
+$('btn-save-fillup').addEventListener('click',()=>{
+  if(!activeVehicle) return;
+  const odo=toNum($('fu-odo').value), L=toNum($('fu-liters').value), ppl=toNum($('fu-ppl').value), total=L*ppl;
+  if(odo<=0 || L<=0 || ppl<=0){ alert('Please fill in all fields correctly'); return; }
+  const rec={ date:$('fu-date').value, odometer: odo, liters: L, ppl: ppl, totalCost: total, partial: $('fu-partial').checked, createdAt: firebase.database.ServerValue.TIMESTAMP };
+  const key = editingRecord && editingRecord.type==='fillup' ? editingRecord.recordId : fillRef(activeVehicle).push().key;
+  Promise.all([
+    fillRef(activeVehicle).child(key).set(rec),
+    vRef().child(activeVehicle).update({ odometer: odo, updatedAt: firebase.database.ServerValue.TIMESTAMP })
+  ]).then(()=>{ resetFillupForm(); showScreen('vehicle-screen'); loadVehicleTabs(activeVehicle); });
+});
+$('btn-delete-fillup').addEventListener('click',()=>{
+  if(!editingRecord || !activeVehicle) return;
+  if(!confirm('Delete this fill-up?')) return;
+  fillRef(activeVehicle).child(editingRecord.recordId).remove().then(()=>{ resetFillupForm(); showScreen('vehicle-screen'); loadVehicleTabs(activeVehicle); });
+});
+
+function editFillup(vid, fid){
+  fillRef(vid).child(fid).once('value').then(s=>{
+    const o=s.val(); if(!o) return;
+    editingRecord={type:'fillup', vehicleId:vid, recordId:fid};
+    $('fu-date').value=o.date||''; $('fu-odo').value=o.odometer||''; $('fu-liters').value=o.liters||''; $('fu-ppl').value=o.ppl||''; $('fu-total').textContent=(toNum(o.totalCost)).toFixed(2); $('fu-partial').checked=!!o.partial;
+    $('btn-delete-fillup').classList.remove('hidden');
+    showScreen('add-fillup-screen');
+  });
+}
+
+/* ─── MAINTENANCE FORM ─── */
+let mtAmountStr='';
+function resetMaintenanceForm(){ todayInput(); $('mt-odo').value=''; $('mt-items').value=''; $('mt-shop').value=''; mtAmountStr=''; $('mt-amount').textContent='0.00'; $('mt-next-odo').value=''; $('mt-next-date').value=''; editingRecord=null; $('btn-delete-maintenance').classList.add('hidden');
+  if(activeVehicle) vRef().child(activeVehicle).once('value').then(s=>{ const v=s.val(); if(v) $('mt-odo').value=toNum(v.odometer)||''; });
+}
+function handleMtNumpad(k){
+  if(k==='C') mtAmountStr='';
+  else if(k==='.' && mtAmountStr.includes('.')) return;
+  else if(mtAmountStr.replace('.','').length>=7) return;
+  else mtAmountStr+=k;
+  $('mt-amount').textContent = mtAmountStr ? parseFloat(mtAmountStr).toFixed(2) : '0.00';
+}
+$('add-maintenance-screen').querySelectorAll('.numpad button').forEach(b=>b.addEventListener('click',()=>handleMtNumpad(b.dataset.k)));
+
+$('btn-mt-back').addEventListener('click',()=>showScreen('vehicle-screen'));
+$('btn-save-maintenance').addEventListener('click',()=>{
+  if(!activeVehicle) return;
+  const odo=toNum($('mt-odo').value); const amt=mtAmountStr?parseFloat(mtAmountStr):0;
+  if(!$('mt-items').value.trim()){ alert('Please describe the service items'); return; }
+  const rec={ date:$('mt-date').value, odometer: odo, items: $('mt-items').value.trim(), shop: $('mt-shop').value.trim(), totalCost: amt, nextOdo: toNum($('mt-next-odo').value)||null, nextDate: $('mt-next-date').value||null, createdAt: firebase.database.ServerValue.TIMESTAMP };
+  const key = editingRecord && editingRecord.type==='maintenance' ? editingRecord.recordId : maintRef(activeVehicle).push().key;
+  Promise.all([
+    maintRef(activeVehicle).child(key).set(rec),
+    vRef().child(activeVehicle).update({ odometer: odo, updatedAt: firebase.database.ServerValue.TIMESTAMP })
+  ]).then(()=>{ resetMaintenanceForm(); showScreen('vehicle-screen'); loadVehicleTabs(activeVehicle); });
+});
+$('btn-delete-maintenance').addEventListener('click',()=>{
+  if(!editingRecord || !activeVehicle) return;
+  if(!confirm('Delete this service record?')) return;
+  maintRef(activeVehicle).child(editingRecord.recordId).remove().then(()=>{ resetMaintenanceForm(); showScreen('vehicle-screen'); loadVehicleTabs(activeVehicle); });
+});
+
+function editMaintenance(vid, mid){
+  maintRef(vid).child(mid).once('value').then(s=>{
+    const o=s.val(); if(!o) return;
+    editingRecord={type:'maintenance', vehicleId:vid, recordId:mid};
+    $('mt-date').value=o.date||''; $('mt-odo').value=o.odometer||''; $('mt-items').value=o.items||''; $('mt-shop').value=o.shop||''; mtAmountStr=o.totalCost?String(o.totalCost):''; $('mt-amount').textContent=mtAmountStr?parseFloat(mtAmountStr).toFixed(2):'0.00'; $('mt-next-odo').value=o.nextOdo||''; $('mt-next-date').value=o.nextDate||'';
+    $('btn-delete-maintenance').classList.remove('hidden');
+    showScreen('add-maintenance-screen');
+  });
+}
+
+/* ─── EXPENSE FORM ─── */
+let exAmountStr='';
+function resetExpenseForm(){ todayInput(); $('ex-category').value='Insurance'; $('ex-desc').value=''; exAmountStr=''; $('ex-amount').textContent='0.00'; editingRecord=null; $('btn-delete-expense').classList.add('hidden'); }
+function handleExNumpad(k){
+  if(k==='C') exAmountStr='';
+  else if(k==='.' && exAmountStr.includes('.')) return;
+  else if(exAmountStr.replace('.','').length>=7) return;
+  else exAmountStr+=k;
+  $('ex-amount').textContent = exAmountStr ? parseFloat(exAmountStr).toFixed(2) : '0.00';
+}
+$('add-expense-screen').querySelectorAll('.numpad button').forEach(b=>b.addEventListener('click',()=>handleExNumpad(b.dataset.k)));
+
+$('btn-ex-back').addEventListener('click',()=>showScreen('vehicle-screen'));
+$('btn-save-expense').addEventListener('click',()=>{
+  if(!activeVehicle) return;
+  const amt=exAmountStr?parseFloat(exAmountStr):0;
+  const rec={ date:$('ex-date').value, category:$('ex-category').value, description:$('ex-desc').value.trim(), amount: amt, createdAt: firebase.database.ServerValue.TIMESTAMP };
+  const key = editingRecord && editingRecord.type==='expense' ? editingRecord.recordId : exp2Ref(activeVehicle).push().key;
+  exp2Ref(activeVehicle).child(key).set(rec).then(()=>{ resetExpenseForm(); showScreen('vehicle-screen'); loadVehicleTabs(activeVehicle); });
+});
+$('btn-delete-expense').addEventListener('click',()=>{
+  if(!editingRecord || !activeVehicle) return;
+  if(!confirm('Delete this expense?')) return;
+  exp2Ref(activeVehicle).child(editingRecord.recordId).remove().then(()=>{ resetExpenseForm(); showScreen('vehicle-screen'); loadVehicleTabs(activeVehicle); });
+});
+
+function editExpense(vid, eid){
+  exp2Ref(vid).child(eid).once('value').then(s=>{
+    const o=s.val(); if(!o) return;
+    editingRecord={type:'expense', vehicleId:vid, recordId:eid};
+    $('ex-date').value=o.date||''; $('ex-category').value=o.category||'Insurance'; $('ex-desc').value=o.description||''; exAmountStr=o.amount?String(o.amount):''; $('ex-amount').textContent=exAmountStr?parseFloat(exAmountStr).toFixed(2):'0.00';
+    $('btn-delete-expense').classList.remove('hidden');
+    showScreen('add-expense-screen');
+  });
+}
+
+/* ─── TRIP FORM ─── */
+function resetTripForm(){ todayInput(); $('tr-purpose').value=''; $('tr-start').value=''; $('tr-end').value=''; $('tr-dist').value=''; editingRecord=null; $('btn-delete-trip').classList.add('hidden');
+  if(activeVehicle) vRef().child(activeVehicle).once('value').then(s=>{ const v=s.val(); if(v) $('tr-start').value=toNum(v.odometer)||''; });
+}
+function calcTripDist(){ const s=toNum($('tr-start').value), e=toNum($('tr-end').value); if(e>s) $('tr-dist').value=(e-s).toFixed(0); }
+['input','change'].forEach(ev=>{ $('tr-start').addEventListener(ev,calcTripDist); $('tr-end').addEventListener(ev,calcTripDist); });
+
+$('btn-tr-back').addEventListener('click',()=>showScreen('vehicle-screen'));
+$('btn-save-trip').addEventListener('click',()=>{
+  if(!activeVehicle) return;
+  const s=toNum($('tr-start').value), e=toNum($('tr-end').value), d=toNum($('tr-dist').value)||(e>s?e-s:0);
+  if(s<=0 || e<=0 || d<=0){ alert('Please enter valid odometer readings'); return; }
+  const rec={ date:$('tr-date').value, purpose: $('tr-purpose').value.trim()||'Trip', startOdo: s, endOdo: e, distance: d, createdAt: firebase.database.ServerValue.TIMESTAMP };
+  const key = editingRecord && editingRecord.type==='trip' ? editingRecord.recordId : tripRef(activeVehicle).push().key;
+  Promise.all([
+    tripRef(activeVehicle).child(key).set(rec),
+    vRef().child(activeVehicle).update({ odometer: e, updatedAt: firebase.database.ServerValue.TIMESTAMP })
+  ]).then(()=>{ resetTripForm(); showScreen('vehicle-screen'); loadVehicleTabs(activeVehicle); });
+});
+$('btn-delete-trip').addEventListener('click',()=>{
+  if(!editingRecord || !activeVehicle) return;
+  if(!confirm('Delete this trip?')) return;
+  tripRef(activeVehicle).child(editingRecord.recordId).remove().then(()=>{ resetTripForm(); showScreen('vehicle-screen'); loadVehicleTabs(activeVehicle); });
+});
+
+function editTrip(vid, tid){
+  tripRef(vid).child(tid).once('value').then(s=>{
+    const o=s.val(); if(!o) return;
+    editingRecord={type:'trip', vehicleId:vid, recordId:tid};
+    $('tr-date').value=o.date||''; $('tr-purpose').value=o.purpose||''; $('tr-start').value=o.startOdo||''; $('tr-end').value=o.endOdo||''; $('tr-dist').value=o.distance||'';
+    $('btn-delete-trip').classList.remove('hidden');
+    showScreen('add-trip-screen');
+  });
+}
+
+/* ─── SETTINGS ─── */
+$('btn-settings').addEventListener('click',openSettings);
+$('btn-settings-back').addEventListener('click',()=>showScreen('dash-screen'));
+function openSettings(){ 
+  $('set-my-uid').textContent=currentUser.uid||'—'; 
+  $('set-units').value=settings.units||'metric';
+  $('set-currency').value=settings.currency||'RM';
+  // Check if owner linked
+  uRef('settings').once('value').then(s=>{
+    const sets=s.val()||{};
+    if(sets.ownerUid){ $('set-owner-uid').value=sets.ownerUid; $('btn-clear-owner').classList.remove('hidden'); }
+    else { $('set-owner-uid').value=''; $('btn-clear-owner').classList.add('hidden'); }
+    // Pending links for main account
+    ownerLinksRef(currentUser.uid).once('value').then(ls=>{
+      const links=ls.val()||{};
+      const pending=Object.entries(links).filter(([_,l])=>l.status==='pending');
+      const approved=Object.entries(links).filter(([_,l])=>l.status==='approved');
+      if(pending.length){ $('owner-panel').classList.remove('hidden'); $('pending-links').innerHTML=pending.map(([id,l])=>`<div class="link-request"><div>${esc(l.name||id)}</div><div class="btn-row"><button class="btn-sm btn-approve" data-uid="${esc(id)}">Approve</button><button class="btn-sm btn-reject" data-uid="${esc(id)}">Reject</button></div></div>`).join('');
+        $('pending-links').querySelectorAll('.btn-approve').forEach(b=>b.addEventListener('click',()=>{ approveLink(currentUser.uid,b.dataset.uid).then(()=>openSettings()); }));
+        $('pending-links').querySelectorAll('.btn-reject').forEach(b=>b.addEventListener('click',()=>{ rejectLink(currentUser.uid,b.dataset.uid).then(()=>openSettings()); }));
+      } else { $('owner-panel').classList.add('hidden'); }
+      if(approved.length){ $('approved-panel').classList.remove('hidden'); $('approved-links').innerHTML=approved.map(([id,l])=>`<div class="link-request"><div>${esc(l.name||id)}</div><button class="btn-sm btn-ghost" data-uid="${esc(id)}" onclick="removeLink('${currentUser.uid}','${id}').then(()=>openSettings())">Remove</button></div>`).join(''); }
+      else { $('approved-panel').classList.add('hidden'); }
+    });
+  });
+  showScreen('settings-screen'); 
+}
+
+$('btn-save-owner').addEventListener('click',()=>{
+  const ownerUid=$('set-owner-uid').value.trim();
+  if(!ownerUid){ alert('Enter a Main Account ID'); return; }
+  if(ownerUid===currentUser.uid){ alert('Cannot link to yourself'); return; }
+  requestLink(currentUser.uid, ownerUid, currentUser.name).then(()=>{
+    alert('Link request sent. Ask the main account owner to approve it in Settings.');
+    $('btn-clear-owner').classList.remove('hidden');
+  }).catch(e=>alert(e.message));
+});
+
+$('btn-clear-owner').addEventListener('click',()=>{
+  if(!confirm('Unlink from main account?')) return;
+  uRef('settings').update({ ownerUid: null }).then(()=>{
+    $('set-owner-uid').value=''; $('btn-clear-owner').classList.add('hidden');
+  });
+});
+
+/* Link helpers */
+function ownerLinksRef(ownerUid){ return db.ref('maintained/'+ownerUid+'/links'); }
+function requestLink(partnerUid, ownerUid, partnerName){
+  return ownerLinksRef(ownerUid).child(partnerUid).set({ status:'pending', name: partnerName, requestedAt: firebase.database.ServerValue.TIMESTAMP });
+}
+function approveLink(ownerUid, partnerUid){
+  return ownerLinksRef(ownerUid).child(partnerUid).update({ status:'approved', approvedAt: firebase.database.ServerValue.TIMESTAMP });
+}
+function rejectLink(ownerUid, partnerUid){
+  return ownerLinksRef(ownerUid).child(partnerUid).update({ status:'rejected', rejectedAt: firebase.database.ServerValue.TIMESTAMP });
+}
+function removeLink(ownerUid, partnerUid){
+  return ownerLinksRef(ownerUid).child(partnerUid).remove();
+}
+
+$('btn-export').addEventListener('click',()=>{
+  if(!currentUser) return;
+  uRef().once('value').then(s=>{
+    const data=s.val()||{};
+    const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='maintained-'+currentUser.uid.slice(-6)+'.json'; a.click();
+  });
+});
+
+$('btn-clear').addEventListener('click',()=>{
+  if(!confirm('DELETE ALL vehicle data? This is irreversible.')) return;
+  uRef().remove().then(()=>{ alert('All data cleared'); showScreen('dash-screen'); renderDash(); });
+});
+$('set-units').addEventListener('change',()=>{ settings.units=$('set-units').value; saveSettings(currentUser.uid,'units',settings.units); });
+$('set-currency').addEventListener('change',()=>{ settings.currency=$('set-currency').value; saveSettings(currentUser.uid,'currency',settings.currency); });
+
+/* register service worker */
+if('serviceWorker' in navigator){ window.addEventListener('load',()=>{ navigator.serviceWorker.register('sw.js').catch(err=>console.log('SW fail',err)); }); }
+
+})();

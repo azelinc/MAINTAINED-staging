@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0f19">
+<title>Maintained</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Maintained">
+<link rel="stylesheet" href="maintain.css">
+</head>
+<body>
+<div id="app">
+
+  <!-- LOGIN -->
+  <section id="login-screen" class="screen active">
+    <div class="login-box">
+      <h1>Maintained</h1>
+      <p class="sub">Vehicle logbook</p>
+      <input type="email" id="login-email" placeholder="Email" autocomplete="off">
+      <input type="text" id="login-name" placeholder="Your name (display)" autocomplete="off">
+      <div class="pin-row">
+        <input type="password" id="login-password" placeholder="Password" autocomplete="off">
+      </div>
+      <button id="btn-login" class="btn-primary">Enter</button>
+      <p class="hint">New email auto-creates an account</p>
+    </div>
+  </section>
+
+  <!-- DASHBOARD -->
+  <section id="dash-screen" class="screen">
+    <header class="dash-header">
+      <div class="user-info"><span id="dash-greeting">Hello</span></div>
+      <div class="header-actions">
+        <button id="btn-settings" class="btn-ghost btn-sm">Settings</button>
+      </div>
+    </header>
+
+    <div class="hero">
+      <div class="hero-block" id="hero-fuel-block" style="cursor:pointer">
+        <div class="hero-label">Fuel This Month</div>
+        <div class="hero-num" id="hero-fuel">RM 0.00</div>
+      </div>
+      <div class="hero-block" id="hero-service-block" style="cursor:pointer">
+        <div class="hero-label">Service This Year</div>
+        <div class="hero-num" id="hero-service">RM 0.00</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">My Vehicles</div>
+      <div id="vehicle-list" class="vehicle-grid"></div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Recent</div>
+      <div id="recent-list" class="list"></div>
+    </div>
+  </section>
+
+  <!-- VEHICLE DETAIL -->
+  <section id="vehicle-screen" class="screen">
+    <header class="add-header">
+      <button id="btn-vehicle-back" class="btn-ghost">Back</button>
+      <span class="add-title" id="vehicle-title">Vehicle</span>
+      <div style="width:48px"></div>
+    </header>
+    <div class="vehicle-hero" id="vehicle-hero">
+      <div class="vehicle-meta" id="vehicle-meta">—</div>
+      <div class="vehicle-odometer">Current Odo <span id="vehicle-odo">0</span> km</div>
+    </div>
+    <div class="tab-bar">
+      <button class="tab-btn active" data-tab="stats">Stats</button>
+      <button class="tab-btn" data-tab="fillups">Fill-ups</button>
+      <button class="tab-btn" data-tab="maintenance">Service</button>
+      <button class="tab-btn" data-tab="expenses">Expenses</button>
+      <button class="tab-btn" data-tab="trips">Trips</button>
+    </div>
+    <div class="tab-panels">
+      <div class="tab-panel active" id="tab-stats">
+        <div class="stat-grid">
+          <div class="stat-card"><div class="stat-label">L/100km</div><div class="stat-num" id="stat-fc">—</div></div>
+          <div class="stat-card"><div class="stat-label">RM/km</div><div class="stat-num" id="stat-costkm">—</div></div>
+          <div class="stat-card"><div class="stat-label">Total Fuel</div><div class="stat-num" id="stat-totalfuel">—</div></div>
+          <div class="stat-card"><div class="stat-label">Last Service</div><div class="stat-num" id="stat-lastsvc">—</div></div>
+        </div>
+      </div>
+      <div class="tab-panel" id="tab-fillups"><div id="fillup-list" class="list"></div></div>
+      <div class="tab-panel" id="tab-maintenance"><div id="maintenance-list" class="list"></div></div>
+      <div class="tab-panel" id="tab-expenses"><div id="expense-list" class="list"></div></div>
+      <div class="tab-panel" id="tab-trips"><div id="trip-list" class="list"></div></div>
+    </div>
+    <button id="btn-add-record" class="fab">+</button>
+  </section>
+
+  <!-- ADD VEHICLE -->
+  <section id="add-vehicle-screen" class="screen">
+    <header class="add-header">
+      <button id="btn-av-back" class="btn-ghost">Back</button>
+      <span class="add-title">New Vehicle</span>
+      <div style="width:48px"></div>
+    </header>
+    <div class="add-body">
+      <div class="field"><label>Plate Number</label><input type="text" id="av-plate" placeholder="e.g. ABC 1234" autocomplete="off"></div>
+      <div class="field"><label>Make</label><input type="text" id="av-make" placeholder="e.g. Toyota" autocomplete="off"></div>
+      <div class="field"><label>Model</label><input type="text" id="av-model" placeholder="e.g. Vios" autocomplete="off"></div>
+      <div class="field"><label>Year</label><input type="number" id="av-year" placeholder="e.g. 2020" autocomplete="off"></div>
+      <div class="field"><label>Fuel Type</label>
+        <select id="av-fueltype"><option>Petrol</option><option>Diesel</option><option>Hybrid</option><option>EV</option></select>
+      </div>
+      <div class="field"><label>Current Odometer (km)</label><input type="number" id="av-odo" placeholder="0" autocomplete="off"></div>
+      <button id="btn-save-vehicle" class="btn-primary btn-lg">Save Vehicle</button>
+    </div>
+  </section>
+
+  <!-- ADD FILL-UP -->
+  <section id="add-fillup-screen" class="screen">
+    <header class="add-header">
+      <button id="btn-fu-back" class="btn-ghost">Back</button>
+      <span class="add-title">Fill-up</span>
+      <div style="width:48px"></div>
+    </header>
+    <div class="add-body">
+      <div class="field"><label>Date</label><input type="date" id="fu-date"></div>
+      <div class="field"><label>Odometer (km)</label><input type="number" id="fu-odo" placeholder="Current odometer" autocomplete="off"></div>
+      <div class="field"><label>Liters</label><input type="number" id="fu-liters" step="0.01" placeholder="0.00" autocomplete="off"></div>
+      <div class="field"><label>Price per Liter (RM)</label><input type="number" id="fu-ppl" step="0.01" placeholder="0.00" autocomplete="off"></div>
+      <div class="field"><label>Total Cost (RM)</label><div class="amount-display" id="fu-total">0.00</div></div>
+      <div class="field row"><label class="switch"><input type="checkbox" id="fu-partial"><span class="slider"></span></label><span>Partial tank (skip economy calc)</span></div>
+      <button id="btn-save-fillup" class="btn-primary btn-lg">Save Fill-up</button>
+      <button id="btn-delete-fillup" class="btn-danger btn-lg hidden">Delete</button>
+    </div>
+  </section>
+
+  <!-- ADD MAINTENANCE -->
+  <section id="add-maintenance-screen" class="screen">
+    <header class="add-header">
+      <button id="btn-mt-back" class="btn-ghost">Back</button>
+      <span class="add-title">Service</span>
+      <div style="width:48px"></div>
+    </header>
+    <div class="add-body">
+      <div class="field"><label>Date</label><input type="date" id="mt-date"></div>
+      <div class="field"><label>Odometer (km)</label><input type="number" id="mt-odo" placeholder="Current odometer" autocomplete="off"></div>
+      <div class="field"><label>Items / Description</label><input type="text" id="mt-items" placeholder="e.g. Oil change, air filter, brake pads" autocomplete="off"></div>
+      <div class="field"><label>Shop</label><input type="text" id="mt-shop" placeholder="e.g. Toyota Service Centre" autocomplete="off"></div>
+      <div class="field"><label>Total Cost (RM)</label>
+        <div class="numpad">
+          <button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button>
+          <button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button>
+          <button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button>
+          <button data-k=".">.</button><button data-k="0">0</button><button data-k="C">C</button>
+        </div>
+        <div class="amount-display" id="mt-amount">0.00</div>
+      </div>
+      <div class="field"><label>Next Service Due (km)</label><input type="number" id="mt-next-odo" placeholder="Optional" autocomplete="off"></div>
+      <div class="field"><label>Next Service Due (date)</label><input type="date" id="mt-next-date"></div>
+      <button id="btn-save-maintenance" class="btn-primary btn-lg">Save Service</button>
+      <button id="btn-delete-maintenance" class="btn-danger btn-lg hidden">Delete</button>
+    </div>
+  </section>
+
+  <!-- ADD EXPENSE -->
+  <section id="add-expense-screen" class="screen">
+    <header class="add-header">
+      <button id="btn-ex-back" class="btn-ghost">Back</button>
+      <span class="add-title">Expense</span>
+      <div style="width:48px"></div>
+    </header>
+    <div class="add-body">
+      <div class="field"><label>Date</label><input type="date" id="ex-date"></div>
+      <div class="field"><label>Category</label>
+        <select id="ex-category">
+          <option>Insurance</option><option>Road Tax</option><option>Toll / Parking</option>
+          <option>Accessories / Tyres</option><option>Fine</option><option>Car Wash / Detailing</option><option>Others</option>
+        </select>
+      </div>
+      <div class="field"><label>Description</label><input type="text" id="ex-desc" placeholder="Optional note" autocomplete="off"></div>
+      <div class="field"><label>Amount (RM)</label>
+        <div class="numpad">
+          <button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button>
+          <button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button>
+          <button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button>
+          <button data-k=".">.</button><button data-k="0">0</button><button data-k="C">C</button>
+        </div>
+        <div class="amount-display" id="ex-amount">0.00</div>
+      </div>
+      <div class="field"><label>Receipt</label><input type="file" id="ex-receipt" accept="image/*"></div>
+      <button id="btn-save-expense" class="btn-primary btn-lg">Save Expense</button>
+      <button id="btn-delete-expense" class="btn-danger btn-lg hidden">Delete</button>
+    </div>
+  </section>
+
+  <!-- ADD TRIP -->
+  <section id="add-trip-screen" class="screen">
+    <header class="add-header">
+      <button id="btn-tr-back" class="btn-ghost">Back</button>
+      <span class="add-title">Trip</span>
+      <div style="width:48px"></div>
+    </header>
+    <div class="add-body">
+      <div class="field"><label>Date</label><input type="date" id="tr-date"></div>
+      <div class="field"><label>Purpose</label><input type="text" id="tr-purpose" placeholder="e.g. Work, Holiday, Family" autocomplete="off"></div>
+      <div class="field"><label>Start Odometer (km)</label><input type="number" id="tr-start" placeholder="0" autocomplete="off"></div>
+      <div class="field"><label>End Odometer (km)</label><input type="number" id="tr-end" placeholder="0" autocomplete="off"></div>
+      <div class="field"><label>Distance (km)</label><input type="number" id="tr-dist" placeholder="Auto" autocomplete="off"></div>
+      <button id="btn-save-trip" class="btn-primary btn-lg">Save Trip</button>
+      <button id="btn-delete-trip" class="btn-danger btn-lg hidden">Delete</button>
+    </div>
+  </section>
+
+  <!-- SETTINGS -->
+  <section id="settings-screen" class="screen">
+    <header class="add-header">
+      <button id="btn-settings-back" class="btn-ghost">Back</button>
+      <span class="add-title">Settings</span>
+      <div style="width:48px"></div>
+    </header>
+    <div class="settings-body">
+      <div class="field">
+        <label>My Account ID</label>
+        <div class="uid-box" id="set-my-uid">—</div>
+        <p class="field-hint">Share this ID with your partner so they can link to you.</p>
+      </div>
+      <div class="field" id="owner-link-field">
+        <label>Send to Main Account</label>
+        <p class="field-hint">Enter the Main Account ID to send your records for review.</p>
+        <input type="text" id="set-owner-uid" placeholder="Main Account ID">
+        <div class="btn-row">
+          <button id="btn-save-owner" class="btn-primary btn-sm">Link</button>
+          <button id="btn-clear-owner" class="btn-danger btn-sm hidden">Unlink</button>
+        </div>
+      </div>
+      <div class="field hidden" id="owner-panel">
+        <label>Pending Sub Requests</label>
+        <div id="pending-links"></div>
+      </div>
+      <div class="field hidden" id="approved-panel">
+        <label>Linked Sub Accounts</label>
+        <div id="approved-links"></div>
+      </div>
+      <div class="field">
+        <label>Units</label>
+        <select id="set-units"><option value="metric">Metric (km, L)</option><option value="imperial">Imperial (mi, gal)</option></select>
+      </div>
+      <div class="field">
+        <label>Currency</label>
+        <select id="set-currency"><option>RM</option><option>USD</option><option>SGD</option><option>EUR</option></select>
+      </div>
+      <div class="field">
+        <label>Data</label>
+        <button id="btn-export" class="btn-ghost btn-sm">Export JSON</button>
+      </div>
+      <div class="field danger-zone">
+        <button id="btn-clear" class="btn-danger btn-sm">Clear All Data</button>
+      </div>
+      <div class="field">
+        <button id="btn-switch-user" class="btn-ghost btn-sm">Switch Account</button>
+      </div>
+      <div class="field version-field">
+        <span id="app-version">v1.0-maintained</span>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+<script src="maintain.js"></script>
+</body>
+</html>
