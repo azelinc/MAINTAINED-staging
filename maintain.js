@@ -23,7 +23,7 @@ let currentUser = null;
 let authReady = false;
 let activeVehicle = null;   // vehicle id
 let editingRecord = null;   // { type, vehicleId, recordId }
-let settings = { units:'metric', currency:'RM' };
+let settings = { units:'metric', currency:'RM', modules:{fuel:true,service:true} };
 let _vehCallback = null;
 
 /* ─── HELPERS ─── */
@@ -38,6 +38,40 @@ function showScreen(id){
   $(id).classList.add('active');
 }
 function todayInput(){ $('fu-date').value=fmtDate(now()); $('mt-date').value=fmtDate(now()); $('ex-date').value=fmtDate(now()); $('tr-date').value=fmtDate(now()); }
+
+/* --- MODULE TOGGLE --- */
+function applyModules(){
+  // Dashboard hero toggles
+  const hFuel=$('hero-fuel-block');
+  const hSvc =$('hero-service-block');
+  if(hFuel) hFuel.classList.toggle('hidden',!settings.modules.fuel);
+  if(hSvc)  hSvc.classList.toggle('hidden',!settings.modules.service);
+  // Vehicle tab visibility
+  const tFu =document.querySelector('.tab-btn[data-tab="fillups"]');
+  const tMt =document.querySelector('.tab-btn[data-tab="maintenance"]');
+  const pFu =$('tab-fillups');
+  const pMt =$('tab-maintenance');
+  if(tFu) tFu.classList.toggle('hidden',!settings.modules.fuel);
+  if(tMt) tMt.classList.toggle('hidden',!settings.modules.service);
+  if(pFu) pFu.classList.toggle('hidden',!settings.modules.fuel);
+  if(pMt) pMt.classList.toggle('hidden',!settings.modules.service);
+  // Re-activate first visible tab if current is hidden
+  const visibleTabs=Array.from(document.querySelectorAll('.tab-btn:not(.hidden)'));
+  if(visibleTabs.length && !visibleTabs.some(t=>t.classList.contains('active'))){
+    document.querySelectorAll('.tab-btn').forEach(t=>t.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+    visibleTabs[0].classList.add('active');
+    $(visibleTabs[0].dataset.tab==='stats'?'tab-stats':('tab-'+visibleTabs[0].dataset.tab)).classList.add('active');
+  }
+}
+function setModule(key,on){
+  if(!settings.modules) settings.modules={fuel:true,service:true};
+  settings.modules[key]=!!on;
+  saveSettings(currentUser.uid,'modules',settings.modules);
+  applyModules();
+  if($('dash-screen').classList.contains('active')) renderDash();
+  if(activeVehicle && $('vehicle-screen').classList.contains('active')) loadVehicleTabs(activeVehicle);
+}
 
 /* ─── REF BUILDERS ─── */
 function uRef(path){ return db.ref('maintained/'+currentUser.uid+(path?('/'+path):'')); }
@@ -129,20 +163,24 @@ function renderDash(){
     // Totals across all vehicles (this month fuel, this year service)
     const monthPrefix=fmtDate(now()).slice(0,7);
     const yearPrefix=String(now().getFullYear());
-    Promise.all(vids.map(vid=>Promise.all([fillRef(vid).once('value'),maintRef(vid).once('value')]))).then(results=>{
-      let fuelTotal=0, svcTotal=0;
-      results.forEach(([fSnap,mSnap])=>{
-        const fills=fSnap.val()||{}, svcs=mSnap.val()||{};
-        Object.values(fills).forEach(o=>{ if((o.date||'').startsWith(monthPrefix)) fuelTotal+=toNum(o.totalCost); });
-        Object.values(svcs).forEach(o=>{ if((o.date||'').startsWith(yearPrefix)) svcTotal+=toNum(o.totalCost); });
+    if(settings.modules.fuel || settings.modules.service){
+      Promise.all(vids.map(vid=>Promise.all([fillRef(vid).once('value'),maintRef(vid).once('value')]))).then(results=>{
+        let fuelTotal=0, svcTotal=0;
+        results.forEach(([fSnap,mSnap])=>{
+          const fills=fSnap.val()||{}, svcs=mSnap.val()||{};
+          if(settings.modules.fuel) Object.values(fills).forEach(o=>{ if((o.date||'').startsWith(monthPrefix)) fuelTotal+=toNum(o.totalCost); });
+          if(settings.modules.service) Object.values(svcs).forEach(o=>{ if((o.date||'').startsWith(yearPrefix)) svcTotal+=toNum(o.totalCost); });
+        });
+        if(settings.modules.fuel) $('hero-fuel').textContent = fmtMoney(fuelTotal);
+        if(settings.modules.service) $('hero-service').textContent = fmtMoney(svcTotal);
       });
-      $('hero-fuel').textContent = fmtMoney(fuelTotal);
-      $('hero-service').textContent = fmtMoney(svcTotal);
-    });
+    }
     // Recent global items (all types interleaved, latest 15)
+    const mods=settings.modules||{};
+    if(mods.fuel || mods.service || mods.expenses || mods.trips){
     const recentPromises = vids.map(vid=>Promise.all([
-      fillRef(vid).once('value').then(s=>s.val()),
-      maintRef(vid).once('value').then(s=>s.val()),
+      mods.fuel ? fillRef(vid).once('value').then(s=>s.val()) : Promise.resolve(null),
+      mods.service ? maintRef(vid).once('value').then(s=>s.val()) : Promise.resolve(null),
       exp2Ref(vid).once('value').then(s=>s.val()),
       tripRef(vid).once('value').then(s=>s.val())
     ]));
@@ -157,7 +195,8 @@ function renderDash(){
       });
       items.sort((a,b)=>b.date.localeCompare(a.date));
       $('recent-list').innerHTML=items.slice(0,15).map(it=>`<div class="item"><div class="item-left"><div class="item-name">${esc(it.label)}</div><div class="item-meta">${esc(it.date)} · ${esc(it.meta)}</div></div><div class="item-amount">${it.amount?fmtMoney(it.amount):''}</div></div>`).join('') || '<div class="item"><div class="item-left"><div class="item-meta">No records yet</div></div></div>';
-    });
+    });}
+    applyModules();
   });
 }
 
@@ -175,6 +214,7 @@ function openVehicle(vid, v){
 
 function loadVehicleTabs(vid){
   // Stats
+  if(settings.modules.fuel){
   fillRef(vid).once('value').then(s=>{
     const fills=s.val()||{};
     const arr=Object.values(fills).sort((a,b)=> (a.date||'').localeCompare(b.date||''));
@@ -194,26 +234,33 @@ function loadVehicleTabs(vid){
       $('stat-fc').textContent = '—'; $('stat-costkm').textContent = '—'; $('stat-totalfuel').textContent = '—';
     }
   });
+  }
   // Last service
+  if(settings.modules.service){
   maintRef(vid).once('value').then(s=>{
     const sv=s.val()||{};
     const arr=Object.values(sv).sort((a,b)=> (b.date||'').localeCompare(a.date||''));
     $('stat-lastsvc').textContent = arr[0]?.date || '—';
   });
+  }
   // Fill-up list
+  if(settings.modules.fuel){
   fillRef(vid).once('value').then(s=>{
     const o=s.val()||{};
     let items=Object.entries(o).map(([id,r])=>({id,...r})).sort((a,b)=> (b.date||'').localeCompare(a.date||''));
     $('fillup-list').innerHTML = items.length ? items.map(r=>`<div class="item" data-fid="${esc(r.id)}"><div class="item-left"><div class="item-name">${fmtDate2(r.date)} · ${toNum(r.liters).toFixed(2)}L @ ${fmtMoney(toNum(r.ppl),'')}/L</div><div class="item-meta">Odo ${toNum(r.odometer).toLocaleString()} km ${r.partial?'(partial)':''}</div></div><div class="item-amount">${fmtMoney(toNum(r.totalCost))}</div></div>`).join('') : '<div class="item"><div class="item-left"><div class="item-meta">No fill-ups</div></div></div>';
     $('fillup-list').querySelectorAll('.item[data-fid]').forEach(el=>el.addEventListener('click',()=>editFillup(vid,el.dataset.fid)));
   });
+  }
   // Maintenance list
+  if(settings.modules.service){
   maintRef(vid).once('value').then(s=>{
     const o=s.val()||{};
     let items=Object.entries(o).map(([id,r])=>({id,...r})).sort((a,b)=> (b.date||'').localeCompare(a.date||''));
     $('maintenance-list').innerHTML = items.length ? items.map(r=>`<div class="item" data-mid="${esc(r.id)}"><div class="item-left"><div class="item-name">${esc(r.items||'Service')}</div><div class="item-meta">${fmtDate2(r.date)} · ${esc(r.shop||'')} · Odo ${toNum(r.odometer).toLocaleString()}</div></div><div class="item-amount">${fmtMoney(toNum(r.totalCost))}</div></div>`).join('') : '<div class="item"><div class="item-left"><div class="item-meta">No service records</div></div></div>';
     $('maintenance-list').querySelectorAll('.item[data-mid]').forEach(el=>el.addEventListener('click',()=>editMaintenance(vid,el.dataset.mid)));
   });
+  }
   // Expense list
   exp2Ref(vid).once('value').then(s=>{
     const o=s.val()||{};
@@ -250,8 +297,8 @@ $('btn-add-record').addEventListener('click',()=>{
   if(!activeVehicle) return;
   const el=document.querySelector('.tab-btn.active');
   const tab=el?el.dataset.tab:'fillups';
-  if(tab==='stats'||tab==='fillups'){ resetFillupForm(); showScreen('add-fillup-screen'); }
-  else if(tab==='maintenance'){ resetMaintenanceForm(); showScreen('add-maintenance-screen'); }
+  if((tab==='stats'||tab==='fillups') && settings.modules.fuel){ resetFillupForm(); showScreen('add-fillup-screen'); }
+  else if(tab==='maintenance' && settings.modules.service){ resetMaintenanceForm(); showScreen('add-maintenance-screen'); }
   else if(tab==='expenses'){ resetExpenseForm(); showScreen('add-expense-screen'); }
   else if(tab==='trips'){ resetTripForm(); showScreen('add-trip-screen'); }
 });
@@ -439,6 +486,7 @@ function openSettings(){
       else { $('approved-panel').classList.add('hidden'); }
     });
   });
+  const m=settings.modules||{fuel:true,service:true}; $('set-mod-fuel').checked=!!m.fuel; $('set-mod-service').checked=!!m.service;
   showScreen('settings-screen'); 
 }
 
@@ -489,6 +537,8 @@ $('btn-clear').addEventListener('click',()=>{
 });
 $('set-units').addEventListener('change',()=>{ settings.units=$('set-units').value; saveSettings(currentUser.uid,'units',settings.units); });
 $('set-currency').addEventListener('change',()=>{ settings.currency=$('set-currency').value; saveSettings(currentUser.uid,'currency',settings.currency); });
+$('set-mod-fuel').addEventListener('change',()=>{ setModule('fuel',$('set-mod-fuel').checked); });
+$('set-mod-service').addEventListener('change',()=>{ setModule('service',$('set-mod-service').checked); });
 
 /* register service worker */
 if('serviceWorker' in navigator){ window.addEventListener('load',()=>{ navigator.serviceWorker.register('sw.js').catch(err=>console.log('SW fail',err)); }); }
