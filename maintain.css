@@ -172,6 +172,14 @@ html, body {
 .stat-label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
 .stat-num { font-size: 1.3rem; font-weight: 700; }
 
+/* QUICK ACTIONS */
+.quick-actions { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 16px; }
+.qa-btn {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  color: var(--text); padding: 12px; font-size: 0.85rem; cursor: pointer; text-align: center;
+}
+.qa-btn:active { background: var(--accent); color: #fff; }
+
 /* SETTINGS */
 .settings-body { padding: 16px 20px 80px; max-width: 480px; margin: 0 auto; }
 .field-hint { font-size: 0.75rem; color: var(--muted); margin-bottom: 8px; }

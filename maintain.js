@@ -55,6 +55,10 @@ function applyModules(){
   if(tMt) tMt.classList.toggle('hidden',!settings.modules.service);
   if(pFu) pFu.classList.toggle('hidden',!settings.modules.fuel);
   if(pMt) pMt.classList.toggle('hidden',!settings.modules.service);
+  // Quick-action buttons
+  const qFu=$('qa-fillup'); const qMt=$('qa-service');
+  if(qFu) qFu.classList.toggle('hidden',!settings.modules.fuel);
+  if(qMt) qMt.classList.toggle('hidden',!settings.modules.service);
   // Re-activate first visible tab if current is hidden
   const visibleTabs=Array.from(document.querySelectorAll('.tab-btn:not(.hidden)'));
   if(visibleTabs.length && !visibleTabs.some(t=>t.classList.contains('active'))){
@@ -290,6 +294,12 @@ document.querySelectorAll('.tab-btn').forEach(b=>{
 });
 
 $('btn-vehicle-back').addEventListener('click',()=>{ activeVehicle=null; showScreen('dash-screen'); renderDash(); });
+
+/* ─── QUICK ACTION BUTTONS ─── */
+$('qa-fillup').addEventListener('click',()=>{ resetFillupForm(); showScreen('add-fillup-screen'); });
+$('qa-service').addEventListener('click',()=>{ resetMaintenanceForm(); showScreen('add-maintenance-screen'); });
+$('qa-expense').addEventListener('click',()=>{ resetExpenseForm(); showScreen('add-expense-screen'); });
+$('qa-trip').addEventListener('click',()=>{ resetTripForm(); showScreen('add-trip-screen'); });
 
 /* ─── ADD RECORD FAB ─── */
 let fabAction='';
