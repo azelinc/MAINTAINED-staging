@@ -296,10 +296,17 @@ document.querySelectorAll('.tab-btn').forEach(b=>{
 $('btn-vehicle-back').addEventListener('click',()=>{ activeVehicle=null; showScreen('dash-screen'); renderDash(); });
 
 /* ─── QUICK ACTION BUTTONS ─── */
-$('qa-fillup').addEventListener('click',()=>{ resetFillupForm(); showScreen('add-fillup-screen'); });
-$('qa-service').addEventListener('click',()=>{ resetMaintenanceForm(); showScreen('add-maintenance-screen'); });
-$('qa-expense').addEventListener('click',()=>{ resetExpenseForm(); showScreen('add-expense-screen'); });
-$('qa-trip').addEventListener('click',()=>{ resetTripForm(); showScreen('add-trip-screen'); });
+ ['qa-fillup','qa-service','qa-expense','qa-trip'].forEach(function(id){
+   var el=$(id);
+   if(!el) return;
+   el.addEventListener('click',function(){
+     if(!activeVehicle) return;
+     if(id==='qa-fillup'){ resetFillupForm(); showScreen('add-fillup-screen'); }
+     else if(id==='qa-service'){ resetMaintenanceForm(); showScreen('add-maintenance-screen'); }
+     else if(id==='qa-expense'){ resetExpenseForm(); showScreen('add-expense-screen'); }
+     else if(id==='qa-trip'){ resetTripForm(); showScreen('add-trip-screen'); }
+   });
+ });
 
 /* ─── ADD RECORD FAB ─── */
 let fabAction='';
