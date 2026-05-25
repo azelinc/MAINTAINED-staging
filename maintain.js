@@ -44,8 +44,10 @@ function applyModules(){
   // Dashboard hero toggles
   const hFuel=$('hero-fuel-block');
   const hSvc =$('hero-service-block');
+  const hExp =$('hero-expense-block');
   if(hFuel) hFuel.classList.toggle('hidden',!settings.modules.fuel);
   if(hSvc)  hSvc.classList.toggle('hidden',!settings.modules.service);
+  if(hExp)  hExp.classList.toggle('hidden',!settings.modules.expenses);
   // Vehicle tab visibility
   const tFu =document.querySelector('.tab-btn[data-tab="fillups"]');
   const tMt =document.querySelector('.tab-btn[data-tab="maintenance"]');
@@ -170,16 +172,18 @@ function renderDash(){
     // Totals across all vehicles (this month fuel, this year service)
     const monthPrefix=fmtDate(now()).slice(0,7);
     const yearPrefix=String(now().getFullYear());
-    if(settings.modules.fuel || settings.modules.service){
-      Promise.all(vids.map(vid=>Promise.all([fillRef(vid).once('value'),maintRef(vid).once('value')]))).then(results=>{
-        let fuelTotal=0, svcTotal=0;
-        results.forEach(([fSnap,mSnap])=>{
-          const fills=fSnap.val()||{}, svcs=mSnap.val()||{};
+    if(settings.modules.fuel || settings.modules.service || settings.modules.expenses){
+      Promise.all(vids.map(vid=>Promise.all([fillRef(vid).once('value'),maintRef(vid).once('value'),exp2Ref(vid).once('value')]))).then(results=>{
+        let fuelTotal=0, svcTotal=0, expTotal=0;
+        results.forEach(([fSnap,mSnap,eSnap])=>{
+          const fills=fSnap.val()||{}, svcs=mSnap.val()||{}, exps=eSnap.val()||{};
           if(settings.modules.fuel) Object.values(fills).forEach(o=>{ if((o.date||'').startsWith(monthPrefix)) fuelTotal+=toNum(o.totalCost); });
           if(settings.modules.service) Object.values(svcs).forEach(o=>{ if((o.date||'').startsWith(yearPrefix)) svcTotal+=toNum(o.totalCost); });
+          if(settings.modules.expenses) Object.values(exps).forEach(o=>{ if((o.date||'').startsWith(yearPrefix)) expTotal+=toNum(o.amount); });
         });
         if(settings.modules.fuel) $('hero-fuel').textContent = fmtMoney(fuelTotal);
         if(settings.modules.service) $('hero-service').textContent = fmtMoney(svcTotal);
+        if(settings.modules.expenses) $('hero-expense').textContent = fmtMoney(expTotal);
       });
     }
     // Recent global items (all types interleaved, latest 15)
