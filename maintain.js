@@ -234,7 +234,7 @@ function renderDash(){
       });
       allItems.sort((a,b)=>b.date.localeCompare(a.date));
       window._recentCache=allItems;
-      renderRecentSlice(0);(it=>`<div class="item" style="border-left:3px solid ${it.color}"><div class="item-left"><div class="item-name"><span class="veh-chip" style="background:${it.color}22;color:${it.color};font-size:0.68rem;font-weight:600;padding:1px 6px;border-radius:3px;margin-right:4px">${esc(vehicles[it.vid]?.plate||it.vid)}</span>${esc(it.label)}</div><div class="item-meta">${esc(it.date)} · ${esc(it.meta)}</div></div><div class="item-amount">${it.amount?fmtMoney(it.amount):''}</div></div>`).join('') || '<div class="item"><div class="item-left"><div class="item-meta">No records yet</div></div></div>';
+      renderRecentSlice(0);
     });}
     // All-time stats: total cost, cost/month, cost/km
     if(vids.length){
@@ -324,14 +324,19 @@ function renderDash(){
   });
 }
 
-function renderRecentSlice(start){
+function renderRecentSlice(start, limit=10){
   const el=$('recent-list');
   if(!window._recentCache||!window._recentCache.length){ el.innerHTML='<div class="item"><div class="item-left"><div class="item-meta">No records yet</div></div></div>'; return; }
-  const slice=window._recentCache.slice(start,start+10);
-  let h=slice.map(it=>`<div class="item" style="border-left:3px solid ${it.color}"><div class="item-left"><div class="item-name"><span class="veh-chip" style="background:${it.color}22;color:${it.color};font-size:0.68rem;font-weight:600;padding:1px 6px;border-radius:3px;margin-right:4px">${esc(window.vehicles_cache?.[it.vid]?.plate||it.vid)}</span>${esc(it.label)}</div><div class="item-meta">${esc(it.date)} &middot; ${esc(it.meta)}</div></div><div class="item-amount">${it.amount?fmtMoney(it.amount):''}</div></div>`).join('');
+  const slice=window._recentCache.slice(start,start+limit);
+  const h=slice.map(it=>`<div class="item" style="border-left:3px solid ${it.color}"><div class="item-left"><div class="item-name"><span class="veh-chip" style="background:${it.color}22;color:${it.color};font-size:0.68rem;font-weight:600;padding:1px 6px;border-radius:3px;margin-right:4px">${esc(window.vehicles_cache?.[it.vid]?.plate||it.vid)}</span>${esc(it.label)}</div><div class="item-meta">${esc(it.date)} · ${esc(it.meta)}</div></div><div class="item-amount">${it.amount?fmtMoney(it.amount):''}</div></div>`).join('');
+  const oldBtn=el.querySelector('.load-more-btn');
+  if(oldBtn) oldBtn.remove();
   if(start===0) el.innerHTML=h;
   else el.innerHTML+=h;
-  if(start+10<window._recentCache.length) el.innerHTML+=`<button class="load-more-btn" onclick="renderRecentSlice(${start+10})">Show more&hellip; (${window._recentCache.length-(start+10)} remaining)</button>`;
+  if(start+limit<window._recentCache.length){
+    const remaining=window._recentCache.length-(start+limit);
+    el.innerHTML+=`<button class="load-more-btn" onclick="renderRecentSlice(${start+limit})">Show more (${remaining})</button>`;
+  }
 }
 window.renderRecentSlice=renderRecentSlice;
 
@@ -359,11 +364,17 @@ function openVehicle(vid, v){
   initOdoEdit(vid, v);
 }
 
+let _odoHandlerRef=null;
+
 function initOdoEdit(vid, v){
   const odoSpan=$('vehicle-odo');
   const editBtn=$('btn-odo-edit');
   const savedSpan=$('odo-saved');
   if(!odoSpan) return;
+  if(_odoHandlerRef){
+    odoSpan.removeEventListener('click',_odoHandlerRef);
+    if(editBtn) editBtn.removeEventListener('click',_odoHandlerRef);
+  }
   function startEdit(){
     const curOdo=toNum(v.odometer).toString();
     const input=document.createElement('input');
@@ -381,10 +392,9 @@ function initOdoEdit(vid, v){
         span.style.cssText='cursor:pointer;border-bottom:1px dashed var(--muted)';
         span.title='Click to update';
         span.textContent=newOdo.toLocaleString();
-        span.addEventListener('click',startEdit);
+        span.addEventListener('click',_odoHandlerRef);
         input.replaceWith(span);
         if(savedSpan){ savedSpan.style.display='inline'; setTimeout(()=>{savedSpan.style.display='none';},2000); }
-        // Refresh tabs to re-check reminders
         loadVehicleTabs(vid);
       }).catch(e=>{
         cancel();
@@ -397,12 +407,13 @@ function initOdoEdit(vid, v){
       span.style.cssText='cursor:pointer;border-bottom:1px dashed var(--muted)';
       span.title='Click to update';
       span.textContent=toNum(v.odometer).toLocaleString();
-      span.addEventListener('click',startEdit);
+      span.addEventListener('click',_odoHandlerRef);
       if(input.parentNode) input.replaceWith(span);
     }
     input.addEventListener('blur',save);
     input.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); save(); } if(e.key==='Escape'){ e.preventDefault(); cancel(); } });
   }
+  _odoHandlerRef=startEdit;
   odoSpan.addEventListener('click',startEdit);
   if(editBtn) editBtn.addEventListener('click',startEdit);
 }
@@ -536,10 +547,17 @@ function computeAllInCostPerKm(vid){
     // Distance from fill-up deltas
     const fillArr=Object.values(fills).sort((a,b)=>(a.date||'').localeCompare(b.date||''));
     for(let i=1;i<fillArr.length;i++){ if(fillArr[i].partial) continue; const d=toNum(fillArr[i].odometer)-toNum(fillArr[i-1].odometer); if(d>0) totalDist+=d; }
-    // Fallback: odometer range
+    // Fallback: odometer range from all records + vehicle's stored odo
     if(totalDist===0 && minOdo<maxOdo) totalDist=maxOdo-minOdo;
-    if(totalCost>0 && totalDist>0) $('stat-costkm').textContent=fmtMoney(totalCost/totalDist);
-    else if(totalCost>0 && totalDist===0) $('stat-costkm').textContent='—';
+    // Also factor in the vehicle's current stored odometer (may be newer than any record)
+    vRef().child(vid).once('value').then(vSnap=>{
+      const v=vSnap.val()||{};
+      const storedOdo=toNum(v.odometer);
+      if(storedOdo>maxOdo) maxOdo=storedOdo;
+      if(totalDist===0 && minOdo<maxOdo) totalDist=maxOdo-minOdo;
+      if(totalCost>0 && totalDist>0) $('stat-costkm').textContent=fmtMoney(totalCost/totalDist);
+      else if(totalCost>0 && totalDist===0) $('stat-costkm').textContent='—';
+    });
     // Cost/month
     const days=earliestDate?Math.max(1,Math.ceil((now()-new Date(earliestDate))/86400000)):1;
     const months=Math.max(0.5, days/30);
@@ -892,7 +910,7 @@ function renderReminderList(vid, items, rawO){
     var doneBadge=isDone?' <span style="color:var(--success);font-size:0.68rem">✓ Done</span>':'';
     var btns=isDone
       ? `<button class="btn-xs btn-ghost" onclick="event.stopPropagation();window.toggleReminderStatus('${esc(vid)}','${esc(r.id)}','active')">Undo</button>`
-      : `<button class="btn-xs btn-ghost" onclick="event.stopPropagation();window.toggleReminderStatus('${esc(vid)}','${esc(r.id)}','completed')" style="color:var(--success)">Done</button> <button class="btn-xs btn-ghost" onclick="event.stopPropagation();window.toggleReminder('${esc(vid)}','${esc(r.id)}',${r.enabled!==false})">${r.enabled===false?'Resume':'Pause'}</button>`;
+      : `<button class="btn-xs btn-ghost" onclick="event.stopPropagation();window.toggleReminderStatus('${esc(vid)}','${esc(r.id)}','completed')" style="color:var(--success)">Done</button>`;
     return `<div class="item${rowClass}" data-rid="${esc(r.id)}" style="cursor:pointer;${rowStyle}">
 <div class="item-left"><div class="item-name">${esc(r.label)}${overdueBadge}${doneBadge}${r.enabled===false?' <span style="color:var(--muted);font-size:0.68rem">(paused)</span>':''}</div>
 <div class="item-meta">${r.dueType==='odo'?'Due at '+toNum(r.dueOdo).toLocaleString()+' km':(r.dueType==='both'?('Due: '+(r.dueDate||'')+' · '+toNum(r.dueOdo||0).toLocaleString()+' km'):r.dueDate||'')}${r.interval?' · Every '+r.interval:''}${r.refLabel?'<br><span style="color:var(--muted);font-size:0.65rem">'+esc(r.refLabel)+'</span>':''}${r.desc?' · '+esc(r.desc):''}</div></div>
@@ -1265,6 +1283,17 @@ $('btn-svc-item-add').addEventListener('click',()=>{
 $('btn-settings').addEventListener('click',openSettings);
 $('btn-settings-back').addEventListener('click',()=>showScreen('dash-screen'));
 $('btn-settings-add-vehicle').addEventListener('click',()=>{ showScreen('add-vehicle-screen'); resetVehicleForm(); });
+
+/* Settings tab switching */
+document.querySelectorAll('.set-tab-btn').forEach(b=>{
+  b.addEventListener('click',()=>{
+    document.querySelectorAll('.set-tab-btn').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.set-tab-panel').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    $('set-tab-'+b.dataset.setTab).classList.add('active');
+  });
+});
+
 function openSettings(){ 
   $('set-my-uid').textContent=currentUser.uid||'—'; 
   $('set-units').value=settings.units||'metric';

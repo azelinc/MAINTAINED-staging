@@ -305,6 +305,13 @@
       <div style="width:48px"></div>
     </header>
     <div class="settings-body">
+      <div class="set-tab-bar">
+        <button class="set-tab-btn active" data-set-tab="account">Account</button>
+        <button class="set-tab-btn" data-set-tab="prefs">Preferences</button>
+        <button class="set-tab-btn" data-set-tab="categories">Categories</button>
+        <button class="set-tab-btn" data-set-tab="data">Data</button>
+      </div>
+      <div class="set-tab-panel active" id="set-tab-account">
       <div class="field">
         <label>My Account ID</label>
         <div class="uid-box" id="set-my-uid">—</div>
@@ -327,6 +334,8 @@
         <label>Linked Sub Accounts</label>
         <div id="approved-links"></div>
       </div>
+      </div>
+      <div class="set-tab-panel" id="set-tab-prefs">
       <div class="field">
         <label>Units</label>
         <select id="set-units"><option value="metric">Metric (km, L)</option><option value="imperial">Imperial (mi, gal)</option></select>
@@ -347,6 +356,12 @@
         <label>Reminders Module</label>
         <label class="switch"><input type="checkbox" id="set-mod-reminders" checked><span class="slider"></span></label>
       </div>
+      <div class="field" id="veh-colors-section">
+        <label>Vehicle Colors</label>
+        <div id="veh-color-list"></div>
+      </div>
+      </div>
+      <div class="set-tab-panel" id="set-tab-categories">
       <div class="field" id="cat-mgr-section">
         <label>Expense Categories</label>
         <div id="cat-mgr-list"></div>
@@ -363,10 +378,8 @@
           <button id="btn-svc-item-add" class="btn-primary btn-sm">Add</button>
         </div>
       </div>
-      <div class="field" id="veh-colors-section">
-        <label>Vehicle Colors</label>
-        <div id="veh-color-list"></div>
       </div>
+      <div class="set-tab-panel" id="set-tab-data">
       <div class="field">
         <label>Data</label>
         <button id="btn-export" class="btn-ghost btn-sm">Export JSON</button>
@@ -382,6 +395,7 @@
       </div>
       <div class="field version-field">
         <span id="app-version">v1.0-maintained</span>
+      </div>
       </div>
     </div>
   </section>
