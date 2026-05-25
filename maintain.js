@@ -112,6 +112,7 @@ function maintRef(vid){ return uRef('maintenance/'+vid); }
 function exp2Ref(vid){ return uRef('expenses/'+vid); }
 function tripRef(vid){ return uRef('trips/'+vid); }
 function remindRef(vid){ return uRef('reminders/'+vid); }
+function catRef(){ return db.ref('maintained/'+currentUser.uid+'/categories'); }
 
 /* ─── LISTENERS ─── */
 function attachListeners(uid){
@@ -597,7 +598,7 @@ function editMaintenance(vid, mid){
 
 /* ─── EXPENSE FORM ─── */
 let exAmountStr='';
-function resetExpenseForm(){ todayInput(); $('ex-odo').value=''; $('ex-category').value='Insurance'; $('ex-desc').value=''; exAmountStr=''; $('ex-amount').textContent='0.00'; editingRecord=null; $('btn-delete-expense').classList.add('hidden');
+function resetExpenseForm(){ todayInput(); $('ex-odo').value=''; populateCategorySelect('Insurance'); $('ex-desc').value=''; exAmountStr=''; $('ex-amount').textContent='0.00'; editingRecord=null; $('btn-delete-expense').classList.add('hidden');
   if(activeVehicle) vRef().child(activeVehicle).once('value').then(s=>{ const v=s.val(); if(v) $('ex-odo').value=toNum(v.odometer)||''; }); }
 function handleExNumpad(k){
   if(k==='C') exAmountStr='';
@@ -626,7 +627,7 @@ function editExpense(vid, eid){
   exp2Ref(vid).child(eid).once('value').then(s=>{
     const o=s.val(); if(!o) return;
     editingRecord={type:'expense', vehicleId:vid, recordId:eid};
-    $('ex-date').value=o.date||''; $('ex-odo').value=o.odometer||''; $('ex-category').value=o.category||'Insurance'; $('ex-desc').value=o.description||''; exAmountStr=o.amount?String(o.amount):''; $('ex-amount').textContent=exAmountStr?parseFloat(exAmountStr).toFixed(2):'0.00';
+    $('ex-date').value=o.date||''; $('ex-odo').value=o.odometer||''; populateCategorySelect(o.category||'Insurance'); $('ex-desc').value=o.description||''; exAmountStr=o.amount?String(o.amount):''; $('ex-amount').textContent=exAmountStr?parseFloat(exAmountStr).toFixed(2):'0.00';
     $('btn-delete-expense').classList.remove('hidden');
     showScreen('add-expense-screen');
   });
@@ -901,6 +902,80 @@ $('btn-save-reminder').addEventListener('click',()=>{
   }
 });
 
+/* ─── EXPENSE CATEGORIES ─── */
+function loadExpenseCategories(cb){
+  catRef().once('value').then(s=>{
+    var cats=s.val()||{};
+    // Also discover from existing expense records
+    if(cb) cb(cats);
+  });
+}
+
+function renderCategoryManager(){
+  loadExpenseCategories(cats=>{
+    var entries=Object.entries(cats);
+    entries.sort((a,b)=>a[1].localeCompare(b[1]));
+    var h=entries.map(([id,name])=>`<div class="cat-row" data-cid="${esc(id)}">
+      <span class="cat-row-name" title="Tap to edit">${esc(name)}</span>
+      <span class="cat-row-del" title="Delete">&times;</span>
+    </div>`).join('');
+    $('cat-mgr-list').innerHTML=h||'<div style="color:var(--muted);font-size:0.8rem">No categories yet</div>';
+    // Edit: tap name → inline edit
+    $('cat-mgr-list').querySelectorAll('.cat-row-name').forEach(el=>{
+      el.addEventListener('click',()=>{
+        var row=el.parentNode; var cid=row.dataset.cid;
+        var curName=el.textContent;
+        var inp=document.createElement('input');
+        inp.type='text'; inp.value=curName; inp.style.cssText='flex:1;font-size:0.85rem;padding:2px 4px;background:var(--surface-2);border:1px solid var(--border);border-radius:4px;color:var(--text)';
+        row.replaceChild(inp,el);
+        inp.focus(); inp.select();
+        inp.addEventListener('blur',()=>saveCatEdit(cid,inp.value.trim()));
+        inp.addEventListener('keydown',e=>{ if(e.key==='Enter') saveCatEdit(cid,inp.value.trim()); });
+      });
+    });
+    // Delete
+    $('cat-mgr-list').querySelectorAll('.cat-row-del').forEach(el=>{
+      el.addEventListener('click',()=>{
+        var cid=el.parentNode.dataset.cid;
+        catRef().child(cid).remove().then(()=>renderCategoryManager());
+      });
+    });
+  });
+}
+
+function saveCatEdit(cid, newName){
+  if(!newName) return;
+  catRef().child(cid).set(newName).then(()=>renderCategoryManager());
+}
+
+function populateCategorySelect(selectedVal){
+  var sel=$('ex-category');
+  if(!sel) return;
+  catRef().once('value').then(s=>{
+    var cats=s.val()||{};
+    var names=Object.values(cats);
+    // Also add hardcoded defaults + discover from existing expenses if needed
+    if(!names.length) names=['Insurance','Road Tax','Toll / Parking','Accessories / Tyres','Fine','Car Wash / Detailing','Others'];
+    names.sort();
+    sel.innerHTML=names.map(n=>`<option value="${esc(n)}" ${n===selectedVal?'selected':''}>${esc(n)}</option>`).join('');
+    // Ensure selectedVal is selected (if it doesn't match any option, select first)
+    if(selectedVal && !names.includes(selectedVal)){
+      // Add it as a one-off
+      sel.innerHTML+=`<option value="${esc(selectedVal)}" selected>${esc(selectedVal)}</option>`;
+    }
+  });
+}
+
+$('btn-cat-add').addEventListener('click',()=>{
+  var inp=$('cat-mgr-input');
+  var name=inp.value.trim();
+  if(!name) return;
+  catRef().push().set(name).then(()=>{
+    inp.value='';
+    renderCategoryManager();
+  });
+});
+
 /* ─── SETTINGS ─── */
 $('btn-settings').addEventListener('click',openSettings);
 $('btn-settings-back').addEventListener('click',()=>showScreen('dash-screen'));
@@ -940,6 +1015,7 @@ function openSettings(){
   });
   var m=settings.modules||{fuel:true,service:true}; $('set-mod-fuel').checked=!!m.fuel; $('set-mod-service').checked=!!m.service;
   $('set-mod-reminders').checked=!!m.reminders;
+  renderCategoryManager();
   showScreen('settings-screen'); 
 }
 

@@ -255,6 +255,14 @@ html, body {
 .field-hint { font-size: 0.75rem; color: var(--muted); margin-bottom: 8px; }
 .uid-box { background: var(--surface); border: 1px solid var(--border); padding: 10px 12px; border-radius: var(--radius); font-family: monospace; font-size: 0.85rem; word-break: break-all; }
 .btn-row { display: flex; gap: 8px; margin-top: 8px; }
+.cat-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--border); }
+.cat-row:last-child { border-bottom: none; }
+.cat-row-name { flex: 1; font-size: 0.85rem; cursor: pointer; }
+.cat-row-name:hover { color: var(--accent); }
+.cat-row-del { color: var(--danger); font-size: 1rem; cursor: pointer; padding: 0 4px; }
+.cat-row-del:hover { opacity: 0.7; }
+.cat-add-row { display: flex; gap: 8px; margin-top: 8px; }
+.cat-add-row input { flex: 1; }
 .danger-zone { margin-top: 32px; border-top: 1px solid var(--border); padding-top: 20px; }
 .version-field { margin-top: 12px; text-align: center; }
 #app-version { color: var(--muted); font-size: 12px; letter-spacing: 0.5px; }
