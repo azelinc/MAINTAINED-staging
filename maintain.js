@@ -331,7 +331,7 @@ function loadVehicleTabs(vid){
   exp2Ref(vid).once('value').then(s=>{
     const o=s.val()||{};
     let items=Object.entries(o).map(([id,r])=>({id,...r})).sort((a,b)=> (b.date||'').localeCompare(a.date||''));
-    $('expense-list').innerHTML = items.length ? items.map(r=>`<div class="item" data-eid="${esc(r.id)}"><div class="item-left"><div class="item-name">${esc(r.category||'Expense')}${r.description?' · '+esc(r.description):''}</div><div class="item-meta">${fmtDate2(r.date)}</div></div><div class="item-amount">${fmtMoney(toNum(r.amount))}</div></div>`).join('') : '<div class="item"><div class="item-left"><div class="item-meta">No expenses</div></div></div>';
+    $('expense-list').innerHTML = items.length ? items.map(r=>`<div class="item" data-eid="${esc(r.id)}"><div class="item-left"><div class="item-name">${esc(r.category||'Expense')}${r.description?' · '+esc(r.description):''}</div><div class="item-meta">${fmtDate2(r.date)}${r.odometer?' · Odo '+toNum(r.odometer).toLocaleString()+' km':''}</div></div><div class="item-amount">${fmtMoney(toNum(r.amount))}</div></div>`).join('') : '<div class="item"><div class="item-left"><div class="item-meta">No expenses</div></div></div>';
     $('expense-list').querySelectorAll('.item[data-eid]').forEach(el=>el.addEventListener('click',()=>editExpense(vid,el.dataset.eid)));
   });
   // Trip list
@@ -359,7 +359,7 @@ function computeAllInCostPerKm(vid){
     // Sum all costs
     Object.values(fills).forEach(o=>{ totalCost+=toNum(o.totalCost); const odo=toNum(o.odometer); if(odo>0){ if(odo<minOdo)minOdo=odo; if(odo>maxOdo)maxOdo=odo; } if(o.date&&(!earliestDate||o.date<earliestDate)) earliestDate=o.date; });
     Object.values(svcs).forEach(o=>{ totalCost+=toNum(o.totalCost); const odo=toNum(o.odometer); if(odo>0){ if(odo<minOdo)minOdo=odo; if(odo>maxOdo)maxOdo=odo; } if(o.date&&(!earliestDate||o.date<earliestDate)) earliestDate=o.date; });
-    Object.values(exps).forEach(o=>{ totalCost+=toNum(o.amount); if(o.date&&(!earliestDate||o.date<earliestDate)) earliestDate=o.date; });
+    Object.values(exps).forEach(o=>{ totalCost+=toNum(o.amount); const odo=toNum(o.odometer); if(odo>0){ if(odo<minOdo)minOdo=odo; if(odo>maxOdo)maxOdo=odo; } if(o.date&&(!earliestDate||o.date<earliestDate)) earliestDate=o.date; });
     Object.values(trips).forEach(o=>{ totalDist+=toNum(o.distance||o.endOdo-o.startOdo); if(o.date&&(!earliestDate||o.date<earliestDate)) earliestDate=o.date; });
     // Distance from fill-up deltas
     const fillArr=Object.values(fills).sort((a,b)=>(a.date||'').localeCompare(b.date||''));
@@ -508,7 +508,8 @@ function editMaintenance(vid, mid){
 
 /* ─── EXPENSE FORM ─── */
 let exAmountStr='';
-function resetExpenseForm(){ todayInput(); $('ex-category').value='Insurance'; $('ex-desc').value=''; exAmountStr=''; $('ex-amount').textContent='0.00'; editingRecord=null; $('btn-delete-expense').classList.add('hidden'); }
+function resetExpenseForm(){ todayInput(); $('ex-odo').value=''; $('ex-category').value='Insurance'; $('ex-desc').value=''; exAmountStr=''; $('ex-amount').textContent='0.00'; editingRecord=null; $('btn-delete-expense').classList.add('hidden');
+  if(activeVehicle) vRef().child(activeVehicle).once('value').then(s=>{ const v=s.val(); if(v) $('ex-odo').value=toNum(v.odometer)||''; }); }
 function handleExNumpad(k){
   if(k==='C') exAmountStr='';
   else if(k==='.' && exAmountStr.includes('.')) return;
@@ -522,7 +523,7 @@ $('btn-ex-back').addEventListener('click',()=>showScreen('vehicle-screen'));
 $('btn-save-expense').addEventListener('click',()=>{
   if(!activeVehicle) return;
   const amt=exAmountStr?parseFloat(exAmountStr):0;
-  const rec={ date:$('ex-date').value, category:$('ex-category').value, description:$('ex-desc').value.trim(), amount: amt, createdAt: firebase.database.ServerValue.TIMESTAMP };
+  const rec={ date:$('ex-date').value, odometer: toNum($('ex-odo').value)||null, category:$('ex-category').value, description:$('ex-desc').value.trim(), amount: amt, createdAt: firebase.database.ServerValue.TIMESTAMP };
   const key = editingRecord && editingRecord.type==='expense' ? editingRecord.recordId : exp2Ref(activeVehicle).push().key;
   exp2Ref(activeVehicle).child(key).set(rec).then(()=>{ resetExpenseForm(); showScreen('vehicle-screen'); loadVehicleTabs(activeVehicle); });
 });
@@ -536,7 +537,7 @@ function editExpense(vid, eid){
   exp2Ref(vid).child(eid).once('value').then(s=>{
     const o=s.val(); if(!o) return;
     editingRecord={type:'expense', vehicleId:vid, recordId:eid};
-    $('ex-date').value=o.date||''; $('ex-category').value=o.category||'Insurance'; $('ex-desc').value=o.description||''; exAmountStr=o.amount?String(o.amount):''; $('ex-amount').textContent=exAmountStr?parseFloat(exAmountStr).toFixed(2):'0.00';
+    $('ex-date').value=o.date||''; $('ex-odo').value=o.odometer||''; $('ex-category').value=o.category||'Insurance'; $('ex-desc').value=o.description||''; exAmountStr=o.amount?String(o.amount):''; $('ex-amount').textContent=exAmountStr?parseFloat(exAmountStr).toFixed(2):'0.00';
     $('btn-delete-expense').classList.remove('hidden');
     showScreen('add-expense-screen');
   });
