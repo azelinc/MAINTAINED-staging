@@ -106,7 +106,7 @@ function detachListeners(){
       currentUser = { uid:user.uid, name:user.displayName||'User', email:user.email };
       loadUserProfile(user.uid).then(p=>{
         if(p?.name){ currentUser.name = p.name; }
-        $('dash-greeting').textContent = 'Hello, '+currentUser.name;
+        $('dash-greeting').textContent = currentUser.email;
         loadSettings(user.uid).then(s=>{ if(s) settings = {...settings,...s}; });
         showScreen('dash-screen'); renderDash(); attachListeners(user.uid);
       });
@@ -133,13 +133,13 @@ function doLogin(){
   if(!email||!password){ alert('Enter email and password'); return; }
   if(!authReady){ alert('Auth initializing, try again in 2 seconds'); return; }
   auth.signInWithEmailAndPassword(email, password)
-    .then(cred=>{ currentUser = { uid:cred.user.uid, name:name||cred.user.displayName||'User', email:cred.user.email }; if(name) saveUserProfile(cred.user.uid,name); $('dash-greeting').textContent='Hello, '+currentUser.name; showScreen('dash-screen'); renderDash(); attachListeners(cred.user.uid); })
+    .then(cred=>{ currentUser = { uid:cred.user.uid, name:name||cred.user.displayName||'User', email:cred.user.email }; if(name) saveUserProfile(cred.user.uid,name); $('dash-greeting').textContent=currentUser.email; showScreen('dash-screen'); renderDash(); attachListeners(cred.user.uid); })
     .catch(err=>{
       if(err.code==='auth/user-not-found'){
         if(!name){ alert('Enter your name to create a new account'); return; }
         if(password.length<6){ alert('Password must be at least 6 characters'); return; }
         return auth.createUserWithEmailAndPassword(email,password)
-          .then(cred=>{ currentUser={uid:cred.user.uid,name,email:cred.user.email}; saveUserProfile(cred.user.uid,name); $('dash-greeting').textContent='Hello, '+currentUser.name; showScreen('dash-screen'); renderDash(); attachListeners(cred.user.uid); });
+          .then(cred=>{ currentUser={uid:cred.user.uid,name,email:cred.user.email}; saveUserProfile(cred.user.uid,name); $('dash-greeting').textContent=currentUser.email; showScreen('dash-screen'); renderDash(); attachListeners(cred.user.uid); });
       }
       alert(err.message);
     });
@@ -154,12 +154,12 @@ function renderDash(){
   vRef().once('value').then(snap=>{
     const vehicles=snap.val()||{};
     const vids=Object.keys(vehicles);
-    // Vehicle cards
+    // Vehicle cards with placeholder cost stats
     const container=$('vehicle-list');
     let h='';
     vids.forEach(id=>{
-      const v=vehicles[id]; const odo=toNum(v.odometer);
-      h+=`<div class="vehicle-card" data-vid="${esc(id)}"><div><div class="vehicle-name">${esc(v.make||'')} ${esc(v.model||'')} ${esc(v.year||'')}</div><div class="vehicle-plate">${esc(v.plate||'')} · ${esc(v.fuelType||'Petrol')}</div></div><div class="vehicle-km">${odo.toLocaleString()} km</div></div>`;
+      const v=vehicles[id]; const isMotorcycle=v.vehicleType==='Motorcycle';
+      h+=`<div class="vehicle-card" data-vid="${esc(id)}"><div class="vc-top"><div class="vc-type-badge">${isMotorcycle?'🏍️':'🚗'}</div><div class="vc-info"><div class="vehicle-name">${esc(v.make||'')} ${esc(v.model||'')} ${esc(v.year||'')}</div><div class="vehicle-plate">${esc(v.plate||'')} · ${esc(v.fuelType||'Petrol')}</div></div></div><div class="vc-costs"><div class="vc-stat"><span class="vc-stat-val" id="vccpd-${esc(id)}">—</span><span class="vc-stat-label">/day</span></div><div class="vc-stat"><span class="vc-stat-val" id="vccpkm-${esc(id)}">—</span><span class="vc-stat-label">/km</span></div></div></div>`;
     });
     container.innerHTML=h;
     container.querySelectorAll('.vehicle-card[data-vid]').forEach(c=>c.addEventListener('click',()=>openVehicle(c.dataset.vid,vehicles[c.dataset.vid])));
@@ -209,19 +209,24 @@ function renderDash(){
       ]));
       Promise.all(allP).then(results=>{
         let totalCost=0, totalDist=0, earliestDate=null;
-        results.forEach(([fills,svcs,exps,trips])=>{
-          Object.values(fills).forEach(o=>{ totalCost+=toNum(o.totalCost); const d=toNum(o.odometer); if(o.date){ if(!earliestDate||o.date<earliestDate) earliestDate=o.date; } });
-          Object.values(svcs).forEach(o=>{ totalCost+=toNum(o.totalCost); if(o.date){ if(!earliestDate||o.date<earliestDate) earliestDate=o.date; } });
-          Object.values(exps).forEach(o=>{ totalCost+=toNum(o.amount); if(o.date){ if(!earliestDate||o.date<earliestDate) earliestDate=o.date; } });
-          Object.values(trips).forEach(o=>{ totalDist+=toNum(o.distance||o.endOdo-o.startOdo); if(o.date){ if(!earliestDate||o.date<earliestDate) earliestDate=o.date; } });
-        });
-        // Distance from consecutive non-partial fill-ups
-        results.forEach(([fills])=>{
-          const arr=Object.values(fills).sort((a,b)=>(a.date||'').localeCompare(b.date||''));
-          for(let i=1;i<arr.length;i++){
-            if(arr[i].partial) continue;
-            const dist=toNum(arr[i].odometer)-toNum(arr[i-1].odometer);
-            if(dist>0) totalDist+=dist;
+        results.forEach(([fills,svcs,exps,trips],i)=>{
+          const vid=vids[i]; const v=vehicles[vid]||{};
+          let vehCost=0, vehDist=0, vehEarliest=null;
+          // Per-vehicle cost
+          Object.values(fills).forEach(o=>{ const c=toNum(o.totalCost); vehCost+=c; totalCost+=c; if(o.date){ if(!vehEarliest||o.date<vehEarliest) vehEarliest=o.date; if(!earliestDate||o.date<earliestDate) earliestDate=o.date; } });
+          Object.values(svcs).forEach(o=>{ const c=toNum(o.totalCost); vehCost+=c; totalCost+=c; if(o.date){ if(!vehEarliest||o.date<vehEarliest) vehEarliest=o.date; if(!earliestDate||o.date<earliestDate) earliestDate=o.date; } });
+          Object.values(exps).forEach(o=>{ const c=toNum(o.amount); vehCost+=c; totalCost+=c; if(o.date){ if(!vehEarliest||o.date<vehEarliest) vehEarliest=o.date; if(!earliestDate||o.date<earliestDate) earliestDate=o.date; } });
+          Object.values(trips).forEach(o=>{ const d=toNum(o.distance||o.endOdo-o.startOdo); vehDist+=d; totalDist+=d; if(o.date){ if(!vehEarliest||o.date<vehEarliest) vehEarliest=o.date; if(!earliestDate||o.date<earliestDate) earliestDate=o.date; } });
+          // Distance from consecutive non-partial fill-ups for this vehicle
+          const fillArr=Object.values(fills).sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+          for(let j=1;j<fillArr.length;j++){ if(fillArr[j].partial) continue; const d=toNum(fillArr[j].odometer)-toNum(fillArr[j-1].odometer); if(d>0) vehDist+=d; }
+          // Update this vehicle's card stats
+          const vehDays=vehEarliest?Math.max(1,Math.ceil((now()-new Date(vehEarliest))/86400000)):1;
+          const cpdEl=$('vccpd-'+vid); if(cpdEl) cpdEl.textContent=fmtMoney(vehCost/vehDays);
+          const cpkmEl=$('vccpkm-'+vid);
+          if(cpkmEl){
+            if(v.trackOdo!==false && vehDist>0) cpkmEl.textContent=fmtMoney(vehCost/vehDist);
+            else cpkmEl.textContent=vehDist>0?fmtMoney(vehCost/vehDist):'—';
           }
         });
         $('alltime-cost').textContent = fmtMoney(totalCost);
@@ -238,9 +243,11 @@ function renderDash(){
 /* ─── VEHICLE ─── */
 function openVehicle(vid, v){
   activeVehicle = vid;
-  $('vehicle-title').textContent = `${esc(v.make||'')} ${esc(v.model||'')} ${esc(v.year||'')}`;
-  $('vehicle-meta').textContent = `${esc(v.plate||'')} · ${esc(v.fuelType||'Petrol')}`;
+  $('vehicle-title').textContent = `${esc(v.vehicleType||'Car') === 'Motorcycle' ? '🏍️' : '🚗'} ${esc(v.make||'')} ${esc(v.model||'')} ${esc(v.year||'')}`;
+  $('vehicle-meta').textContent = `${esc(v.plate||'')} · ${esc(v.fuelType||'Petrol')} · ${esc(v.vehicleType||'Car')}`;
   $('vehicle-odo').textContent = toNum(v.odometer).toLocaleString();
+  if(!v.trackOdo) $('vehicle-odometer').classList.add('hidden');
+  else $('vehicle-odometer').classList.remove('hidden');
   showScreen('vehicle-screen');
   loadVehicleTabs(vid);
   // Set default trip start from last end
@@ -352,10 +359,17 @@ $('btn-add-record').addEventListener('click',()=>{
 });
 
 /* ─── VEHICLE FORM ─── */
-function resetVehicleForm(){ $('av-plate').value=''; $('av-make').value=''; $('av-model').value=''; $('av-year').value=''; $('av-fueltype').value='Petrol'; $('av-odo').value=''; editingRecord=null; }
+function resetVehicleForm(){ $('av-plate').value=''; $('av-make').value=''; $('av-model').value=''; $('av-year').value=''; $('av-type').value='Car'; $('av-fueltype').value='Petrol'; $('av-track-odo').checked=true; $('av-odo').value=''; $('av-odo-field').classList.remove('hidden'); editingRecord=null; }
+// Odometer toggle
+$('av-type').addEventListener('change',function(){
+  if(this.value==='Motorcycle'){ $('av-track-odo').checked=false; toggleOdo(); }
+  else { $('av-track-odo').checked=true; toggleOdo(); }
+});
+$('av-track-odo').addEventListener('change',toggleOdo);
+function toggleOdo(){ $('av-odo-field').classList.toggle('hidden',!$('av-track-odo').checked); if(!$('av-track-odo').checked) $('av-odo').value=''; }
 $('btn-av-back').addEventListener('click',()=>showScreen('dash-screen'));
 $('btn-save-vehicle').addEventListener('click',()=>{
-  const v={ plate:$('av-plate').value.trim(), make:$('av-make').value.trim(), model:$('av-model').value.trim(), year:$('av-year').value.trim(), fuelType:$('av-fueltype').value, odometer: toNum($('av-odo').value), createdAt: firebase.database.ServerValue.TIMESTAMP };
+  const v={ plate:$('av-plate').value.trim(), make:$('av-make').value.trim(), model:$('av-model').value.trim(), year:$('av-year').value.trim(), vehicleType:$('av-type').value, fuelType:$('av-fueltype').value, trackOdo:$('av-track-odo').checked, odometer: toNum($('av-odo').value), createdAt: firebase.database.ServerValue.TIMESTAMP };
   if(!v.plate){ alert('Plate number is required'); return; }
   const key = editingRecord && editingRecord.type==='vehicle' ? editingRecord.recordId : vRef().push().key;
   vRef().child(key).update(v).then(()=>{ activeVehicle=key; showScreen('vehicle-screen'); openVehicle(key, v); });
