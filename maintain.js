@@ -916,21 +916,29 @@ function renderCategoryManager(){
     var entries=Object.entries(cats);
     entries.sort((a,b)=>a[1].localeCompare(b[1]));
     var h=entries.map(([id,name])=>`<div class="cat-row" data-cid="${esc(id)}">
-      <span class="cat-row-name" title="Tap to edit">${esc(name)}</span>
+      <span class="cat-row-name">${esc(name)}</span>
+      <span class="cat-row-edit" title="Edit">✎</span>
       <span class="cat-row-del" title="Delete">&times;</span>
     </div>`).join('');
     $('cat-mgr-list').innerHTML=h||'<div style="color:var(--muted);font-size:0.8rem">No categories yet</div>';
-    // Edit: tap name → inline edit
+    // Edit: tap ✎ icon or name → inline edit
+    function startCatEdit(el, cid, curName){
+      var inp=document.createElement('input');
+      inp.type='text'; inp.value=curName; inp.style.cssText='flex:1;font-size:0.85rem;padding:2px 4px;background:var(--surface-2);border:1px solid var(--border);border-radius:4px;color:var(--text)';
+      el.parentNode.replaceChild(inp,el);
+      inp.focus(); inp.select();
+      inp.addEventListener('blur',()=>saveCatEdit(cid,inp.value.trim()));
+      inp.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); saveCatEdit(cid,inp.value.trim()); } });
+    }
     $('cat-mgr-list').querySelectorAll('.cat-row-name').forEach(el=>{
-      el.addEventListener('click',()=>{
-        var row=el.parentNode; var cid=row.dataset.cid;
-        var curName=el.textContent;
-        var inp=document.createElement('input');
-        inp.type='text'; inp.value=curName; inp.style.cssText='flex:1;font-size:0.85rem;padding:2px 4px;background:var(--surface-2);border:1px solid var(--border);border-radius:4px;color:var(--text)';
-        row.replaceChild(inp,el);
-        inp.focus(); inp.select();
-        inp.addEventListener('blur',()=>saveCatEdit(cid,inp.value.trim()));
-        inp.addEventListener('keydown',e=>{ if(e.key==='Enter') saveCatEdit(cid,inp.value.trim()); });
+      el.addEventListener('click',()=>startCatEdit(el,el.parentNode.dataset.cid,el.textContent));
+    });
+    $('cat-mgr-list').querySelectorAll('.cat-row-edit').forEach(el=>{
+      el.addEventListener('click',e=>{
+        e.stopPropagation();
+        var row=el.parentNode;
+        var nameEl=row.querySelector('.cat-row-name');
+        startCatEdit(nameEl,row.dataset.cid,nameEl.textContent);
       });
     });
     // Delete
