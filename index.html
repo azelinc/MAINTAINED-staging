@@ -1,325 +1,325 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0b0f19">
-<title>Maintained</title>
-<link rel="manifest" href="manifest.json">
-<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
-<link rel="apple-touch-icon" href="icon-192.png">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Maintained">
-<link rel="stylesheet" href="maintain.css">
-</head>
-<body>
-<div id="app">
-
-  <!-- LOGIN -->
-  <section id="login-screen" class="screen active">
-    <div class="login-box">
-      <h1>Maintained</h1>
-      <p class="sub">Vehicle logbook</p>
-      <input type="email" id="login-email" placeholder="Email" autocomplete="off">
-      <input type="text" id="login-name" placeholder="Your name (display)" autocomplete="off">
-      <div class="pin-row">
-        <input type="password" id="login-password" placeholder="Password" autocomplete="off">
-      </div>
-      <button id="btn-login" class="btn-primary">Enter</button>
-      <p class="hint">New email auto-creates an account</p>
-    </div>
-  </section>
-
-  <!-- DASHBOARD -->
-  <section id="dash-screen" class="screen">
-    <div id="staging-banner" class="staging-banner hidden">STAGING <span id="staging-ver"></span></div>
-    <header class="dash-header">
-      <div class="user-info"><span id="dash-greeting">Hello</span></div>
-      <div class="header-actions">
-        <button id="btn-settings" class="btn-ghost btn-sm">Settings</button>
-      </div>
-    </header>
-
-    <div class="hero">
-      <div class="hero-block" id="hero-fuel-block" style="cursor:pointer">
-        <div class="hero-label">Fuel This Month</div>
-        <div class="hero-num" id="hero-fuel">RM 0</div>
-      </div>
-      <div class="hero-block" id="hero-service-block" style="cursor:pointer">
-        <div class="hero-label">Service This Year</div>
-        <div class="hero-num" id="hero-service">RM 0</div>
-      </div>
-      <div class="hero-block" id="hero-expense-block" style="cursor:pointer">
-        <div class="hero-label">Expenses This Year</div>
-        <div class="hero-num" id="hero-expense">RM 0</div>
-      </div>
-    </div>
-
-    <div class="alltime-row" id="alltime-row">
-      <div class="alltime-card"><div class="alltime-label">All-Time Cost</div><div class="alltime-num" id="alltime-cost">RM 0.00</div></div>
-      <div class="alltime-card"><div class="alltime-label">Total Svc+Exp</div><div class="alltime-num" id="alltime-svcexp">—</div></div>
-      <div class="alltime-card"><div class="alltime-label">Cost / Month</div><div class="alltime-num" id="alltime-cpd">—</div></div>
-      <div class="alltime-card"><div class="alltime-label">Cost / km</div><div class="alltime-num" id="alltime-cpkm">—</div></div>
-    </div>
-
-    <div id="reminder-ticker" class="reminder-ticker hidden"><div class="reminder-ticker-inner" id="reminder-ticker-inner"></div></div>
-
-    <div class="section">
-      <div class="section-title">My Vehicles</div>
-      <div id="vehicle-list" class="vehicle-grid"></div>
-    </div>
-
-    <div class="section">
-      <div class="section-title">Recent</div>
-      <div id="recent-list" class="list"></div>
-    </div>
-  </section>
-
-  <!-- VEHICLE DETAIL -->
-  <section id="vehicle-screen" class="screen">
-    <header class="add-header">
-      <button id="btn-vehicle-back" class="btn-ghost">Back</button>
-      <span class="add-title" id="vehicle-title">Vehicle</span>
-      <div style="width:48px"></div>
-    </header>
-    <div class="vehicle-hero" id="vehicle-hero">
-      <div class="vehicle-meta" id="vehicle-meta">—</div>
-      <div class="vehicle-odometer" id="vehicle-odometer">Current Odo <span id="vehicle-odo">0</span> km</div>
-    </div>
-    <div class="tab-bar">
-      <button class="tab-btn active" data-tab="stats">Stats</button>
-      <button class="tab-btn" data-tab="fillups">Fill-ups</button>
-      <button class="tab-btn" data-tab="maintenance">Service</button>
-      <button class="tab-btn" data-tab="expenses">Expenses</button>
-      <button class="tab-btn" data-tab="trips">Trips</button>
-      <button class="tab-btn" data-tab="reminders">Reminders</button>
-    </div>
-    <div class="tab-panels">
-      <div class="tab-panel active" id="tab-stats">
-        <div class="stat-grid">
-          <div class="stat-card" id="stat-card-fc"><div class="stat-label">L/100km</div><div class="stat-num" id="stat-fc">—</div></div>
-          <div class="stat-card" id="stat-card-costkm"><div class="stat-label">Cost / km</div><div class="stat-num" id="stat-costkm">—</div></div>
-          <div class="stat-card" id="stat-card-costmonth"><div class="stat-label">Cost / Month</div><div class="stat-num" id="stat-costmonth">—</div></div>
-          <div class="stat-card" id="stat-card-totalcost"><div class="stat-label">Total Svc+Exp</div><div class="stat-num" id="stat-totalcost">—</div></div>
-          <div class="stat-card" id="stat-card-totalfuel"><div class="stat-label">Total Fuel</div><div class="stat-num" id="stat-totalfuel">—</div></div>
-          <div class="stat-card" id="stat-card-lastsvc"><div class="stat-label">Last Service</div><div class="stat-num" id="stat-lastsvc">—</div></div>
-        </div>
-        <div id="quick-actions" class="quick-actions">
-          <button class="qa-btn" id="qa-fillup">⛽ Fill-up</button>
-          <button class="qa-btn" id="qa-service">🔧 Service</button>
-          <button class="qa-btn" id="qa-expense">💸 Expense</button>
-          <button class="qa-btn" id="qa-trip">🛣️ Trip</button>
-        </div>
-      </div>
-      <div class="tab-panel" id="tab-fillups"><div id="fillup-list" class="list"></div></div>
-      <div class="tab-panel" id="tab-maintenance"><div id="maintenance-list" class="list"></div></div>
-      <div class="tab-panel" id="tab-expenses"><div id="expense-list" class="list"></div></div>
-      <div class="tab-panel" id="tab-trips"><div id="trip-list" class="list"></div></div>
-      <div class="tab-panel" id="tab-reminders"><div id="reminder-list" class="list"></div></div>
-    </div>
-    <button id="btn-add-record" class="fab">+</button>
-  </section>
-
-  <!-- ADD VEHICLE -->
-  <section id="add-vehicle-screen" class="screen">
-    <header class="add-header">
-      <button id="btn-av-back" class="btn-ghost">Back</button>
-      <span class="add-title">New Vehicle</span>
-      <div style="width:48px"></div>
-    </header>
-    <div class="add-body">
-      <div class="field"><label>Plate Number</label><input type="text" id="av-plate" placeholder="e.g. ABC 1234" autocomplete="off"></div>
-      <div class="field"><label>Make</label><input type="text" id="av-make" placeholder="e.g. Toyota" autocomplete="off"></div>
-      <div class="field"><label>Model</label><input type="text" id="av-model" placeholder="e.g. Vios" autocomplete="off"></div>
-      <div class="field"><label>Year</label><input type="number" id="av-year" placeholder="e.g. 2020" autocomplete="off"></div>
-      <div class="field"><label>Vehicle Type</label>
-        <select id="av-type"><option>Car</option><option>Motorcycle</option></select>
-      </div>
-      <div class="field"><label>Fuel Type</label>
-        <select id="av-fueltype"><option>Petrol</option><option>Diesel</option><option>Hybrid</option><option>EV</option></select>
-      </div>
-      <div class="field row"><label class="switch"><input type="checkbox" id="av-track-odo" checked><span class="slider"></span></label><span>Track Odometer</span></div>
-      <div class="field" id="av-odo-field"><label>Current Odometer (km)</label><input type="number" id="av-odo" placeholder="0" autocomplete="off"></div>
-      <button id="btn-save-vehicle" class="btn-primary btn-lg">Save Vehicle</button>
-    </div>
-  </section>
-
-  <!-- ADD FILL-UP -->
-  <section id="add-fillup-screen" class="screen">
-    <header class="add-header">
-      <button id="btn-fu-back" class="btn-ghost">Back</button>
-      <span class="add-title">Fill-up</span>
-      <div style="width:48px"></div>
-    </header>
-    <div class="add-body">
-      <div class="field"><label>Date</label><input type="date" id="fu-date"></div>
-      <div class="field"><label>Odometer (km)</label><input type="number" id="fu-odo" placeholder="Current odometer" autocomplete="off"></div>
-      <div class="field"><label>Liters</label><input type="number" id="fu-liters" step="0.01" placeholder="0.00" autocomplete="off"></div>
-      <div class="field"><label>Price per Liter (RM)</label><input type="number" id="fu-ppl" step="0.01" placeholder="0.00" autocomplete="off"></div>
-      <div class="field"><label>Total Cost (RM)</label><div class="amount-display" id="fu-total">0.00</div></div>
-      <div class="field row"><label class="switch"><input type="checkbox" id="fu-partial"><span class="slider"></span></label><span>Partial tank (skip economy calc)</span></div>
-      <button id="btn-save-fillup" class="btn-primary btn-lg">Save Fill-up</button>
-      <button id="btn-delete-fillup" class="btn-danger btn-lg hidden">Delete</button>
-    </div>
-  </section>
-
-  <!-- ADD MAINTENANCE -->
-  <section id="add-maintenance-screen" class="screen">
-    <header class="add-header">
-      <button id="btn-mt-back" class="btn-ghost">Back</button>
-      <span class="add-title">Service</span>
-      <div style="width:48px"></div>
-    </header>
-    <div class="add-body">
-      <div class="field"><label>Date</label><input type="date" id="mt-date"></div>
-      <div class="field"><label>Odometer (km)</label><input type="number" id="mt-odo" placeholder="Current odometer" autocomplete="off"></div>
-      <div class="field"><label>Items / Description</label><input type="text" id="mt-items" placeholder="e.g. Oil change, air filter, brake pads" autocomplete="off"></div>
-      <div class="field"><label>Shop</label><input type="text" id="mt-shop" placeholder="e.g. Toyota Service Centre" autocomplete="off"></div>
-      <div class="field"><label>Total Cost (RM)</label>
-        <div class="numpad">
-          <button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button>
-          <button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button>
-          <button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button>
-          <button data-k=".">.</button><button data-k="0">0</button><button data-k="C">C</button>
-        </div>
-        <div class="amount-display" id="mt-amount">0.00</div>
-      </div>
-      <div class="field"><label>Next Service Due (km)</label><input type="number" id="mt-next-odo" placeholder="Optional" autocomplete="off"></div>
-      <div class="field"><label>Next Service Due (date)</label><input type="date" id="mt-next-date"></div>
-      <button id="btn-save-maintenance" class="btn-primary btn-lg">Save Service</button>
-      <button id="btn-delete-maintenance" class="btn-danger btn-lg hidden">Delete</button>
-    </div>
-  </section>
-
-  <!-- ADD EXPENSE -->
-  <section id="add-expense-screen" class="screen">
-    <header class="add-header">
-      <button id="btn-ex-back" class="btn-ghost">Back</button>
-      <span class="add-title">Expense</span>
-      <div style="width:48px"></div>
-    </header>
-    <div class="add-body">
-      <div class="field"><label>Date</label><input type="date" id="ex-date"></div>
-      <div class="field"><label>Odometer (km, optional)</label><input type="number" id="ex-odo" placeholder="Current odometer" autocomplete="off"></div>
-      <div class="field"><label>Category</label>
-        <select id="ex-category">
-          <option>Insurance</option><option>Road Tax</option><option>Toll / Parking</option>
-          <option>Accessories / Tyres</option><option>Fine</option><option>Car Wash / Detailing</option><option>Others</option>
-        </select>
-      </div>
-      <div class="field"><label>Description</label><input type="text" id="ex-desc" placeholder="Optional note" autocomplete="off"></div>
-      <div class="field"><label>Amount (RM)</label>
-        <div class="numpad">
-          <button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button>
-          <button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button>
-          <button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button>
-          <button data-k=".">.</button><button data-k="0">0</button><button data-k="C">C</button>
-        </div>
-        <div class="amount-display" id="ex-amount">0.00</div>
-      </div>
-      <div class="field"><label>Receipt</label><input type="file" id="ex-receipt" accept="image/*"></div>
-      <button id="btn-save-expense" class="btn-primary btn-lg">Save Expense</button>
-      <button id="btn-delete-expense" class="btn-danger btn-lg hidden">Delete</button>
-    </div>
-  </section>
-
-  <!-- ADD TRIP -->
-  <section id="add-trip-screen" class="screen">
-    <header class="add-header">
-      <button id="btn-tr-back" class="btn-ghost">Back</button>
-      <span class="add-title">Trip</span>
-      <div style="width:48px"></div>
-    </header>
-    <div class="add-body">
-      <div class="field"><label>Date</label><input type="date" id="tr-date"></div>
-      <div class="field"><label>Purpose</label><input type="text" id="tr-purpose" placeholder="e.g. Work, Holiday, Family" autocomplete="off"></div>
-      <div class="field"><label>Start Odometer (km)</label><input type="number" id="tr-start" placeholder="0" autocomplete="off"></div>
-      <div class="field"><label>End Odometer (km)</label><input type="number" id="tr-end" placeholder="0" autocomplete="off"></div>
-      <div class="field"><label>Distance (km)</label><input type="number" id="tr-dist" placeholder="Auto" autocomplete="off"></div>
-      <button id="btn-save-trip" class="btn-primary btn-lg">Save Trip</button>
-      <button id="btn-delete-trip" class="btn-danger btn-lg hidden">Delete</button>
-    </div>
-  </section>
-
-  <!-- SETTINGS -->
-  <section id="settings-screen" class="screen">
-    <header class="add-header">
-      <button id="btn-settings-back" class="btn-ghost">Back</button>
-      <span class="add-title">Settings</span>
-      <div style="width:48px"></div>
-    </header>
-    <div class="settings-body">
-      <div class="field">
-        <label>My Account ID</label>
-        <div class="uid-box" id="set-my-uid">—</div>
-        <p class="field-hint">Share this ID with your partner so they can link to you.</p>
-      </div>
-      <div class="field" id="owner-link-field">
-        <label>Send to Main Account</label>
-        <p class="field-hint">Enter the Main Account ID to send your records for review.</p>
-        <input type="text" id="set-owner-uid" placeholder="Main Account ID">
-        <div class="btn-row">
-          <button id="btn-save-owner" class="btn-primary btn-sm">Link</button>
-          <button id="btn-clear-owner" class="btn-danger btn-sm hidden">Unlink</button>
-        </div>
-      </div>
-      <div class="field hidden" id="owner-panel">
-        <label>Pending Sub Requests</label>
-        <div id="pending-links"></div>
-      </div>
-      <div class="field hidden" id="approved-panel">
-        <label>Linked Sub Accounts</label>
-        <div id="approved-links"></div>
-      </div>
-      <div class="field">
-        <label>Units</label>
-        <select id="set-units"><option value="metric">Metric (km, L)</option><option value="imperial">Imperial (mi, gal)</option></select>
-      </div>
-      <div class="field">
-        <label>Currency</label>
-        <select id="set-currency"><option>RM</option><option>USD</option><option>SGD</option><option>EUR</option></select>
-      </div>
-      <div class="field switch-row">
-        <label>Fuel Module</label>
-        <label class="switch"><input type="checkbox" id="set-mod-fuel" checked><span class="slider"></span></label>
-      </div>
-      <div class="field switch-row">
-        <label>Service Module</label>
-        <label class="switch"><input type="checkbox" id="set-mod-service" checked><span class="slider"></span></label>
-      </div>
-      <div class="field switch-row">
-        <label>Reminders Module</label>
-        <label class="switch"><input type="checkbox" id="set-mod-reminders" checked><span class="slider"></span></label>
-      </div>
-      <div class="field" id="veh-colors-section">
-        <label>Vehicle Colors</label>
-        <div id="veh-color-list"></div>
-      </div>
-      <div class="field">
-        <label>Data</label>
-        <button id="btn-export" class="btn-ghost btn-sm">Export JSON</button>
-      </div>
-      <div class="field danger-zone">
-        <button id="btn-clear" class="btn-danger btn-sm">Clear All Data</button>
-      </div>
-      <div class="field">
-        <button id="btn-switch-user" class="btn-ghost btn-sm">Switch Account</button>
-      </div>
-      <div class="field">
-        <button id="btn-settings-add-vehicle" class="btn-primary btn-sm">Add Vehicle</button>
-      </div>
-      <div class="field version-field">
-        <span id="app-version">v1.0-maintained</span>
-      </div>
-    </div>
-  </section>
-
-</div>
-
-<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-<script src="maintain.js"></script>
-</body>
-</html>
+     1|<!DOCTYPE html>
+     2|<html lang="en">
+     3|<head>
+     4|<meta charset="utf-8">
+     5|<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+     6|<meta name="theme-color" content="#0b0f19">
+     7|<title>Maintained</title>
+     8|<link rel="manifest" href="manifest.json">
+     9|<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+    10|<link rel="apple-touch-icon" href="icon-192.png">
+    11|<meta name="apple-mobile-web-app-capable" content="yes">
+    12|<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    13|<meta name="apple-mobile-web-app-title" content="Maintained">
+    14|<link rel="stylesheet" href="maintain.css">
+    15|</head>
+    16|<body>
+    17|<div id="app">
+    18|
+    19|  <!-- LOGIN -->
+    20|  <section id="login-screen" class="screen active">
+    21|    <div class="login-box">
+    22|      <h1>Maintained</h1>
+    23|      <p class="sub">Vehicle logbook</p>
+    24|      <input type="email" id="login-email" placeholder="Email" autocomplete="off">
+    25|      <input type="text" id="login-name" placeholder="Your name (display)" autocomplete="off">
+    26|      <div class="pin-row">
+    27|        <input type="password" id="login-password" placeholder="Password" autocomplete="off">
+    28|      </div>
+    29|      <button id="btn-login" class="btn-primary">Enter</button>
+    30|      <p class="hint">New email auto-creates an account</p>
+    31|    </div>
+    32|  </section>
+    33|
+    34|  <!-- DASHBOARD -->
+    35|  <section id="dash-screen" class="screen">
+    36|    <div id="staging-banner" class="staging-banner hidden">STAGING <span id="staging-ver"></span></div>
+    37|    <header class="dash-header">
+    38|      <div class="user-info"><span id="dash-greeting">Hello</span></div>
+    39|      <div class="header-actions">
+    40|        <button id="btn-settings" class="btn-ghost btn-sm">Settings</button>
+    41|      </div>
+    42|    </header>
+    43|
+    44|    <div class="hero">
+    45|      <div class="hero-block" id="hero-fuel-block" style="cursor:pointer">
+    46|        <div class="hero-label">Fuel This Month</div>
+    47|        <div class="hero-num" id="hero-fuel">RM 0</div>
+    48|      </div>
+    49|      <div class="hero-block" id="hero-service-block" style="cursor:pointer">
+    50|        <div class="hero-label">Service This Year</div>
+    51|        <div class="hero-num" id="hero-service">RM 0</div>
+    52|      </div>
+    53|      <div class="hero-block" id="hero-expense-block" style="cursor:pointer">
+    54|        <div class="hero-label">Expenses This Year</div>
+    55|        <div class="hero-num" id="hero-expense">RM 0</div>
+    56|      </div>
+    57|    </div>
+    58|
+    59|    <div class="alltime-row" id="alltime-row">
+    60|      <div class="alltime-card"><div class="alltime-label">All-Time Cost</div><div class="alltime-num" id="alltime-cost">RM 0.00</div></div>
+    61|    62|      <div class="alltime-card"><div class="alltime-label">Cost / Month</div><div class="alltime-num" id="alltime-cpd">—</div></div>
+    63|      <div class="alltime-card"><div class="alltime-label">Cost / km</div><div class="alltime-num" id="alltime-cpkm">—</div></div>
+    64|    </div>
+    65|
+    66|    <div id="reminder-ticker" class="reminder-ticker hidden"><div class="reminder-ticker-inner" id="reminder-ticker-inner"></div></div>
+    67|
+    68|    <div class="section">
+    69|      <div class="section-title">My Vehicles</div>
+    70|      <div id="vehicle-list" class="vehicle-grid"></div>
+    71|    </div>
+    72|
+    73|    <div class="section">
+    74|      <div class="section-title">Recent</div>
+    75|      <div id="recent-list" class="list"></div>
+    76|    </div>
+    77|  </section>
+    78|
+    79|  <!-- VEHICLE DETAIL -->
+    80|  <section id="vehicle-screen" class="screen">
+    81|    <header class="add-header">
+    82|      <button id="btn-vehicle-back" class="btn-ghost">Back</button>
+    83|      <span class="add-title" id="vehicle-title">Vehicle</span>
+    84|      <div style="width:48px"></div>
+    85|    </header>
+    86|    <div class="vehicle-hero" id="vehicle-hero">
+    87|      <div class="vehicle-meta" id="vehicle-meta">—</div>
+    88|      <div class="vehicle-odometer" id="vehicle-odometer">Current Odo <span id="vehicle-odo">0</span> km</div>
+    89|    </div>
+    90|    <div class="tab-bar">
+    91|      <button class="tab-btn active" data-tab="stats">Stats</button>
+    92|      <button class="tab-btn" data-tab="fillups">Fill-ups</button>
+    93|      <button class="tab-btn" data-tab="maintenance">Service</button>
+    94|      <button class="tab-btn" data-tab="expenses">Expenses</button>
+    95|      <button class="tab-btn" data-tab="trips">Trips</button>
+    96|      <button class="tab-btn" data-tab="reminders">Reminders</button>
+    97|    </div>
+    98|    <div class="tab-panels">
+    99|      <div class="tab-panel active" id="tab-stats">
+   100|        <div class="stat-grid">
+   101|          <div class="stat-card" id="stat-card-fc"><div class="stat-label">L/100km</div><div class="stat-num" id="stat-fc">—</div></div>
+   102|          <div class="stat-card" id="stat-card-costkm"><div class="stat-label">Cost / km</div><div class="stat-num" id="stat-costkm">—</div></div>
+   103|          <div class="stat-card" id="stat-card-costmonth"><div class="stat-label">Cost / Month</div><div class="stat-num" id="stat-costmonth">—</div></div>
+   104|          <div class="stat-card" id="stat-card-totalcost"><div class="stat-label">Total Cost</div><div class="stat-num" id="stat-totalcost">—</div></div>
+   105|          <div class="stat-card" id="stat-card-totalfuel"><div class="stat-label">Total Fuel</div><div class="stat-num" id="stat-totalfuel">—</div></div>
+   106|          <div class="stat-card" id="stat-card-lastsvc"><div class="stat-label">Last Service</div><div class="stat-num" id="stat-lastsvc">—</div></div>
+   107|        </div>
+   108|        <div id="quick-actions" class="quick-actions">
+   109|          <button class="qa-btn" id="qa-fillup">⛽ Fill-up</button>
+   110|          <button class="qa-btn" id="qa-service">🔧 Service</button>
+   111|          <button class="qa-btn" id="qa-expense">💸 Expense</button>
+   112|          <button class="qa-btn" id="qa-trip">🛣️ Trip</button>
+   113|        </div>
+   114|      </div>
+   115|      <div class="tab-panel" id="tab-fillups"><div id="fillup-list" class="list"></div></div>
+   116|      <div class="tab-panel" id="tab-maintenance"><div id="maintenance-list" class="list"></div></div>
+   117|      <div class="tab-panel" id="tab-expenses"><div id="expense-list" class="list"></div></div>
+   118|      <div class="tab-panel" id="tab-trips"><div id="trip-list" class="list"></div></div>
+   119|      <div class="tab-panel" id="tab-reminders"><div id="reminder-list" class="list"></div></div>
+   120|    </div>
+   121|    <button id="btn-add-record" class="fab">+</button>
+   122|  </section>
+   123|
+   124|  <!-- ADD VEHICLE -->
+   125|  <section id="add-vehicle-screen" class="screen">
+   126|    <header class="add-header">
+   127|      <button id="btn-av-back" class="btn-ghost">Back</button>
+   128|      <span class="add-title">New Vehicle</span>
+   129|      <div style="width:48px"></div>
+   130|    </header>
+   131|    <div class="add-body">
+   132|      <div class="field"><label>Plate Number</label><input type="text" id="av-plate" placeholder="e.g. ABC 1234" autocomplete="off"></div>
+   133|      <div class="field"><label>Make</label><input type="text" id="av-make" placeholder="e.g. Toyota" autocomplete="off"></div>
+   134|      <div class="field"><label>Model</label><input type="text" id="av-model" placeholder="e.g. Vios" autocomplete="off"></div>
+   135|      <div class="field"><label>Year</label><input type="number" id="av-year" placeholder="e.g. 2020" autocomplete="off"></div>
+   136|      <div class="field"><label>Vehicle Type</label>
+   137|        <select id="av-type"><option>Car</option><option>Motorcycle</option></select>
+   138|      </div>
+   139|      <div class="field"><label>Fuel Type</label>
+   140|        <select id="av-fueltype"><option>Petrol</option><option>Diesel</option><option>Hybrid</option><option>EV</option></select>
+   141|      </div>
+   142|      <div class="field row"><label class="switch"><input type="checkbox" id="av-track-odo" checked><span class="slider"></span></label><span>Track Odometer</span></div>
+   143|      <div class="field" id="av-odo-field"><label>Current Odometer (km)</label><input type="number" id="av-odo" placeholder="0" autocomplete="off"></div>
+   144|      <button id="btn-save-vehicle" class="btn-primary btn-lg">Save Vehicle</button>
+   145|    </div>
+   146|  </section>
+   147|
+   148|  <!-- ADD FILL-UP -->
+   149|  <section id="add-fillup-screen" class="screen">
+   150|    <header class="add-header">
+   151|      <button id="btn-fu-back" class="btn-ghost">Back</button>
+   152|      <span class="add-title">Fill-up</span>
+   153|      <div style="width:48px"></div>
+   154|    </header>
+   155|    <div class="add-body">
+   156|      <div class="field"><label>Date</label><input type="date" id="fu-date"></div>
+   157|      <div class="field"><label>Odometer (km)</label><input type="number" id="fu-odo" placeholder="Current odometer" autocomplete="off"></div>
+   158|      <div class="field"><label>Liters</label><input type="number" id="fu-liters" step="0.01" placeholder="0.00" autocomplete="off"></div>
+   159|      <div class="field"><label>Price per Liter (RM)</label><input type="number" id="fu-ppl" step="0.01" placeholder="0.00" autocomplete="off"></div>
+   160|      <div class="field"><label>Total Cost (RM)</label><div class="amount-display" id="fu-total">0.00</div></div>
+   161|      <div class="field row"><label class="switch"><input type="checkbox" id="fu-partial"><span class="slider"></span></label><span>Partial tank (skip economy calc)</span></div>
+   162|      <button id="btn-save-fillup" class="btn-primary btn-lg">Save Fill-up</button>
+   163|      <button id="btn-delete-fillup" class="btn-danger btn-lg hidden">Delete</button>
+   164|    </div>
+   165|  </section>
+   166|
+   167|  <!-- ADD MAINTENANCE -->
+   168|  <section id="add-maintenance-screen" class="screen">
+   169|    <header class="add-header">
+   170|      <button id="btn-mt-back" class="btn-ghost">Back</button>
+   171|      <span class="add-title">Service</span>
+   172|      <div style="width:48px"></div>
+   173|    </header>
+   174|    <div class="add-body">
+   175|      <div class="field"><label>Date</label><input type="date" id="mt-date"></div>
+   176|      <div class="field"><label>Odometer (km)</label><input type="number" id="mt-odo" placeholder="Current odometer" autocomplete="off"></div>
+   177|      <div class="field"><label>Items / Description</label><input type="text" id="mt-items" placeholder="e.g. Oil change, air filter, brake pads" autocomplete="off"></div>
+   178|      <div class="field"><label>Shop</label><input type="text" id="mt-shop" placeholder="e.g. Toyota Service Centre" autocomplete="off"></div>
+   179|      <div class="field"><label>Total Cost (RM)</label>
+   180|        <div class="numpad">
+   181|          <button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button>
+   182|          <button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button>
+   183|          <button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button>
+   184|          <button data-k=".">.</button><button data-k="0">0</button><button data-k="C">C</button>
+   185|        </div>
+   186|        <div class="amount-display" id="mt-amount">0.00</div>
+   187|      </div>
+   188|      <div class="field"><label>Next Service Due (km)</label><input type="number" id="mt-next-odo" placeholder="Optional" autocomplete="off"></div>
+   189|      <div class="field"><label>Next Service Due (date)</label><input type="date" id="mt-next-date"></div>
+   190|      <button id="btn-save-maintenance" class="btn-primary btn-lg">Save Service</button>
+   191|      <button id="btn-delete-maintenance" class="btn-danger btn-lg hidden">Delete</button>
+   192|    </div>
+   193|  </section>
+   194|
+   195|  <!-- ADD EXPENSE -->
+   196|  <section id="add-expense-screen" class="screen">
+   197|    <header class="add-header">
+   198|      <button id="btn-ex-back" class="btn-ghost">Back</button>
+   199|      <span class="add-title">Expense</span>
+   200|      <div style="width:48px"></div>
+   201|    </header>
+   202|    <div class="add-body">
+   203|      <div class="field"><label>Date</label><input type="date" id="ex-date"></div>
+   204|      <div class="field"><label>Odometer (km, optional)</label><input type="number" id="ex-odo" placeholder="Current odometer" autocomplete="off"></div>
+   205|      <div class="field"><label>Category</label>
+   206|        <select id="ex-category">
+   207|          <option>Insurance</option><option>Road Tax</option><option>Toll / Parking</option>
+   208|          <option>Accessories / Tyres</option><option>Fine</option><option>Car Wash / Detailing</option><option>Others</option>
+   209|        </select>
+   210|      </div>
+   211|      <div class="field"><label>Description</label><input type="text" id="ex-desc" placeholder="Optional note" autocomplete="off"></div>
+   212|      <div class="field"><label>Amount (RM)</label>
+   213|        <div class="numpad">
+   214|          <button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button>
+   215|          <button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button>
+   216|          <button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button>
+   217|          <button data-k=".">.</button><button data-k="0">0</button><button data-k="C">C</button>
+   218|        </div>
+   219|        <div class="amount-display" id="ex-amount">0.00</div>
+   220|      </div>
+   221|      <div class="field"><label>Receipt</label><input type="file" id="ex-receipt" accept="image/*"></div>
+   222|      <button id="btn-save-expense" class="btn-primary btn-lg">Save Expense</button>
+   223|      <button id="btn-delete-expense" class="btn-danger btn-lg hidden">Delete</button>
+   224|    </div>
+   225|  </section>
+   226|
+   227|  <!-- ADD TRIP -->
+   228|  <section id="add-trip-screen" class="screen">
+   229|    <header class="add-header">
+   230|      <button id="btn-tr-back" class="btn-ghost">Back</button>
+   231|      <span class="add-title">Trip</span>
+   232|      <div style="width:48px"></div>
+   233|    </header>
+   234|    <div class="add-body">
+   235|      <div class="field"><label>Date</label><input type="date" id="tr-date"></div>
+   236|      <div class="field"><label>Purpose</label><input type="text" id="tr-purpose" placeholder="e.g. Work, Holiday, Family" autocomplete="off"></div>
+   237|      <div class="field"><label>Start Odometer (km)</label><input type="number" id="tr-start" placeholder="0" autocomplete="off"></div>
+   238|      <div class="field"><label>End Odometer (km)</label><input type="number" id="tr-end" placeholder="0" autocomplete="off"></div>
+   239|      <div class="field"><label>Distance (km)</label><input type="number" id="tr-dist" placeholder="Auto" autocomplete="off"></div>
+   240|      <button id="btn-save-trip" class="btn-primary btn-lg">Save Trip</button>
+   241|      <button id="btn-delete-trip" class="btn-danger btn-lg hidden">Delete</button>
+   242|    </div>
+   243|  </section>
+   244|
+   245|  <!-- SETTINGS -->
+   246|  <section id="settings-screen" class="screen">
+   247|    <header class="add-header">
+   248|      <button id="btn-settings-back" class="btn-ghost">Back</button>
+   249|      <span class="add-title">Settings</span>
+   250|      <div style="width:48px"></div>
+   251|    </header>
+   252|    <div class="settings-body">
+   253|      <div class="field">
+   254|        <label>My Account ID</label>
+   255|        <div class="uid-box" id="set-my-uid">—</div>
+   256|        <p class="field-hint">Share this ID with your partner so they can link to you.</p>
+   257|      </div>
+   258|      <div class="field" id="owner-link-field">
+   259|        <label>Send to Main Account</label>
+   260|        <p class="field-hint">Enter the Main Account ID to send your records for review.</p>
+   261|        <input type="text" id="set-owner-uid" placeholder="Main Account ID">
+   262|        <div class="btn-row">
+   263|          <button id="btn-save-owner" class="btn-primary btn-sm">Link</button>
+   264|          <button id="btn-clear-owner" class="btn-danger btn-sm hidden">Unlink</button>
+   265|        </div>
+   266|      </div>
+   267|      <div class="field hidden" id="owner-panel">
+   268|        <label>Pending Sub Requests</label>
+   269|        <div id="pending-links"></div>
+   270|      </div>
+   271|      <div class="field hidden" id="approved-panel">
+   272|        <label>Linked Sub Accounts</label>
+   273|        <div id="approved-links"></div>
+   274|      </div>
+   275|      <div class="field">
+   276|        <label>Units</label>
+   277|        <select id="set-units"><option value="metric">Metric (km, L)</option><option value="imperial">Imperial (mi, gal)</option></select>
+   278|      </div>
+   279|      <div class="field">
+   280|        <label>Currency</label>
+   281|        <select id="set-currency"><option>RM</option><option>USD</option><option>SGD</option><option>EUR</option></select>
+   282|      </div>
+   283|      <div class="field switch-row">
+   284|        <label>Fuel Module</label>
+   285|        <label class="switch"><input type="checkbox" id="set-mod-fuel" checked><span class="slider"></span></label>
+   286|      </div>
+   287|      <div class="field switch-row">
+   288|        <label>Service Module</label>
+   289|        <label class="switch"><input type="checkbox" id="set-mod-service" checked><span class="slider"></span></label>
+   290|      </div>
+   291|      <div class="field switch-row">
+   292|        <label>Reminders Module</label>
+   293|        <label class="switch"><input type="checkbox" id="set-mod-reminders" checked><span class="slider"></span></label>
+   294|      </div>
+   295|      <div class="field" id="veh-colors-section">
+   296|        <label>Vehicle Colors</label>
+   297|        <div id="veh-color-list"></div>
+   298|      </div>
+   299|      <div class="field">
+   300|        <label>Data</label>
+   301|        <button id="btn-export" class="btn-ghost btn-sm">Export JSON</button>
+   302|      </div>
+   303|      <div class="field danger-zone">
+   304|        <button id="btn-clear" class="btn-danger btn-sm">Clear All Data</button>
+   305|      </div>
+   306|      <div class="field">
+   307|        <button id="btn-switch-user" class="btn-ghost btn-sm">Switch Account</button>
+   308|      </div>
+   309|      <div class="field">
+   310|        <button id="btn-settings-add-vehicle" class="btn-primary btn-sm">Add Vehicle</button>
+   311|      </div>
+   312|      <div class="field version-field">
+   313|        <span id="app-version">v1.0-maintained</span>
+   314|      </div>
+   315|    </div>
+   316|  </section>
+   317|
+   318|</div>
+   319|
+   320|<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+   321|<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+   322|<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+   323|<script src="maintain.js"></script>
+   324|</body>
+   325|</html>
+   326|

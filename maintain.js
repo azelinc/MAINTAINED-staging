@@ -183,12 +183,14 @@ function renderDash(){
     const vehicles=snap.val()||{};
     const vids=Object.keys(vehicles);
     window.vehicles_cache=vehicles;
+    const vidColors=resolveVidColors(vehicles,vids);
     // Vehicle cards with placeholder cost stats
     const container=$('vehicle-list');
     let h='';
     vids.forEach(id=>{
       const v=vehicles[id]; const isMotorcycle=v.vehicleType==='Motorcycle';
-      h+=`<div class="vehicle-card" data-vid="${esc(id)}"><div class="vc-top"><div class="vc-type-badge">${isMotorcycle?'🏍️':'🚗'}</div><div class="vc-info"><div class="vehicle-name">${esc(v.make||'')} ${esc(v.model||'')} ${esc(v.year||'')}</div><div class="vehicle-plate">${esc(v.plate||'')} · ${esc(v.fuelType||'Petrol')}</div></div></div><div class="vc-costs"><div class="vc-stat"><span class="vc-stat-val" id="vccpd-${esc(id)}">—</span><span class="vc-stat-label">/mo</span></div><div class="vc-stat"><span class="vc-stat-val" id="vccpkm-${esc(id)}">—</span><span class="vc-stat-label">/km</span></div></div></div>`;
+      const vc=vidColors[id]||'#ef4444';
+      h+=`<div class="vehicle-card" data-vid="${esc(id)}"><div class="vc-top"><div class="vc-type-badge" style="background:${vc}33;border:2px solid ${vc}">${isMotorcycle?'🏍️':'🚗'}</div><div class="vc-info"><div class="vehicle-name">${esc(v.make||'')} ${esc(v.model||'')} ${esc(v.year||'')}</div><div class="vehicle-plate">${esc(v.plate||'')} · ${esc(v.fuelType||'Petrol')}</div></div></div><div class="vc-costs"><div class="vc-stat"><span class="vc-stat-val" id="vccpd-${esc(id)}">—</span><span class="vc-stat-label">/mo</span></div><div class="vc-stat"><span class="vc-stat-val" id="vccpkm-${esc(id)}">—</span><span class="vc-stat-label">/km</span></div></div></div>`;
     });
     container.innerHTML=h;
     container.querySelectorAll('.vehicle-card[data-vid]').forEach(c=>c.addEventListener('click',()=>openVehicle(c.dataset.vid,vehicles[c.dataset.vid])));
@@ -269,9 +271,6 @@ function renderDash(){
           }
         });
         $('alltime-cost').textContent = fmtMoney(totalCost);
-        let svcExpTotal=0;
-        results.forEach(([fills,svcs,exps,trips],i)=>{ Object.values(svcs).forEach(o=>{ svcExpTotal+=toNum(o.totalCost); }); Object.values(exps).forEach(o=>{ svcExpTotal+=toNum(o.amount); }); });
-        $('alltime-svcexp').textContent = fmtMoney(svcExpTotal);
         // Sum each vehicle's own cost/month for the global figure
         let fleetMonthly=0;
         results.forEach(([fills,svcs,exps,trips],i)=>{
