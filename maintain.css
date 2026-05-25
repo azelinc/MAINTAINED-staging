@@ -33,6 +33,7 @@ html, body {
 }
 .login-box h1 { font-size: 2.4rem; letter-spacing: 2px; margin-bottom: 4px; }
 .login-box .sub { color: var(--muted); font-size: 0.9rem; margin-bottom: 32px; }
+.login-ver { color: var(--muted); font-size: 0.7rem; margin: -28px 0 20px; text-align: center; }
 .login-box input {
   width: 100%; background: var(--surface); border: 1px solid var(--border); color: var(--text);
   padding: 14px 16px; border-radius: var(--radius); font-size: 1rem; margin-bottom: 12px; outline: none;
@@ -70,6 +71,7 @@ html, body {
 .user-info { display: flex; align-items: center; gap: 12px; }
 #dash-greeting { font-weight: 600; }
 .header-actions { display: flex; gap: 8px; align-items: center; }
+.dash-version { color: var(--muted); font-size: 0.68rem; margin-right: 4px; }
 
 .hero { display: flex; gap: 12px; padding: 20px; }
 .hero-block {

@@ -16,8 +16,14 @@ const FIREBASE_CONFIG = {
 firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.database();
-const APP_VER = 'v1.3';
+const APP_VER = 'v1.32';
 const STAGING = location.hostname.includes('-staging');
+
+/* ─── EARLY VERSION DISPLAY ─── */
+(function(){
+  const ver=APP_VER+(STAGING?' (staging)':'');
+  const loginVer=$('login-ver'); if(loginVer) loginVer.textContent=ver;
+})();
 
 /* ─── STATE ─── */
 let currentUser = null;
@@ -180,6 +186,8 @@ $('btn-switch-user').addEventListener('click',()=>{ auth.signOut().then(()=>{ cu
 /* ─── DASHBOARD ─── */
 function renderDash(){
   if(!currentUser) return;
+  const dashVerEl=$('dash-version');
+  if(dashVerEl) dashVerEl.textContent=APP_VER+(STAGING?' (staging)':'');
   const uid=currentUser.uid;
   vRef().once('value').then(snap=>{
     const vehicles=snap.val()||{};
