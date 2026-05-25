@@ -248,9 +248,17 @@ function renderDash(){
           }
         });
         $('alltime-cost').textContent = fmtMoney(totalCost);
-        const days = earliestDate ? Math.max(1, Math.ceil((now()-new Date(earliestDate))/86400000)) : 1;
-        const months = Math.max(0.5, days/30);
-        $('alltime-cpd').textContent = fmtMoney(totalCost/months);
+        // Sum each vehicle's own cost/month for the global figure
+        let fleetMonthly=0;
+        results.forEach(([fills,svcs,exps,trips],i)=>{
+          let vehCost=0, vehEarliest=null;
+          Object.values(fills).forEach(o=>{ vehCost+=toNum(o.totalCost); if(o.date && (!vehEarliest||o.date<vehEarliest)) vehEarliest=o.date; });
+          Object.values(svcs).forEach(o=>{ vehCost+=toNum(o.totalCost); if(o.date && (!vehEarliest||o.date<vehEarliest)) vehEarliest=o.date; });
+          Object.values(exps).forEach(o=>{ vehCost+=toNum(o.amount); if(o.date && (!vehEarliest||o.date<vehEarliest)) vehEarliest=o.date; });
+          const vehDays=vehEarliest?Math.max(1,Math.ceil((now()-new Date(vehEarliest))/86400000)):1;
+          fleetMonthly+=vehCost/Math.max(0.5,vehDays/30);
+        });
+        $('alltime-cpd').textContent = fmtMoney(fleetMonthly);
         if(totalDist>0) $('alltime-cpkm').textContent = fmtMoney(totalCost/totalDist);
         else $('alltime-cpkm').textContent = '—';
       });
