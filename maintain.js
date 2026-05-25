@@ -59,6 +59,11 @@ function applyModules(){
   const qFu=$('qa-fillup'); const qMt=$('qa-service');
   if(qFu) qFu.classList.toggle('hidden',!settings.modules.fuel);
   if(qMt) qMt.classList.toggle('hidden',!settings.modules.service);
+  // Stat cards
+  const scFc=$('stat-card-fc'); const scCkm=$('stat-card-costkm'); const scTf=$('stat-card-totalfuel');
+  if(scFc) scFc.classList.toggle('hidden',!settings.modules.fuel);
+  if(scCkm) scCkm.classList.toggle('hidden',!settings.modules.fuel);
+  if(scTf) scTf.classList.toggle('hidden',!settings.modules.fuel);
   // Re-activate first visible tab if current is hidden
   const visibleTabs=Array.from(document.querySelectorAll('.tab-btn:not(.hidden)'));
   if(visibleTabs.length && !visibleTabs.some(t=>t.classList.contains('active'))){
@@ -220,6 +225,11 @@ function renderDash(){
           // Distance from consecutive non-partial fill-ups for this vehicle
           const fillArr=Object.values(fills).sort((a,b)=>(a.date||'').localeCompare(b.date||''));
           for(let j=1;j<fillArr.length;j++){ if(fillArr[j].partial) continue; const d=toNum(fillArr[j].odometer)-toNum(fillArr[j-1].odometer); if(d>0) vehDist+=d; }
+          // Fallback: odometer range from all records (fills, service, expenses) if no trip/fillup distance
+          let minOdo=Infinity, maxOdo=-Infinity;
+          Object.values(fills).forEach(o=>{ const odo=toNum(o.odometer); if(odo>0){ if(odo<minOdo) minOdo=odo; if(odo>maxOdo) maxOdo=odo; } });
+          Object.values(svcs).forEach(o=>{ const odo=toNum(o.odometer); if(odo>0){ if(odo<minOdo) minOdo=odo; if(odo>maxOdo) maxOdo=odo; } });
+          if(vehDist===0 && minOdo<maxOdo){ vehDist=maxOdo-minOdo; totalDist+=vehDist; }
           // Update this vehicle's card stats
           const vehDays=vehEarliest?Math.max(1,Math.ceil((now()-new Date(vehEarliest))/86400000)):1;
           const cpdEl=$('vccpd-'+vid); if(cpdEl) cpdEl.textContent=fmtMoney(vehCost/vehDays);
