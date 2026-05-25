@@ -30,7 +30,7 @@ let _vehCallback = null;
 function $(id){ return document.getElementById(id); }
 function now(){ return new Date(); }
 function fmtDate(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
-function fmtMoney(n,sym){ const s=sym||settings.currency||'RM'; return s+' '+n.toFixed(2); }
+function fmtMoney(n,sym){ const s=sym||settings.currency||'RM'; return s+' '+n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
 function esc(s){ const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
 function toNum(v){ const n=parseFloat(v); return isNaN(n)?0:n; }
 function showScreen(id){
@@ -193,6 +193,9 @@ function renderDash(){
     // Recent global items (all types interleaved, latest 15)
     const mods=settings.modules||{};
     if(mods.fuel || mods.service || mods.expenses || mods.trips){
+    const VEHC=['#3b82f6','#10b981','#f59e0b','#ef4444'];
+    const vidColors={};
+    vids.forEach((vid,i)=>vidColors[vid]=VEHC[i%VEHC.length]);
     const recentPromises = vids.map(vid=>Promise.all([
       mods.fuel ? fillRef(vid).once('value').then(s=>s.val()) : Promise.resolve(null),
       mods.service ? maintRef(vid).once('value').then(s=>s.val()) : Promise.resolve(null),
@@ -202,14 +205,14 @@ function renderDash(){
     Promise.all(recentPromises).then(results=>{
       let items=[];
       results.forEach(([fills,svcs,exps,trips],i)=>{
-        const vid=vids[i];
-        if(fills) Object.entries(fills).forEach(([id,o])=>items.push({t:'Fuel',id,vid,date:o.date||'',label:`Fuel · ${(toNum(o.liters)).toFixed(2)}L`,amount:toNum(o.totalCost),meta:`${esc(vehicles[vid]?.plate||vid)} @ ${toNum(o.odometer).toLocaleString()} km`}));
-        if(svcs) Object.entries(svcs).forEach(([id,o])=>items.push({t:'Service',id,vid,date:o.date||'',label:o.items||'Service',amount:toNum(o.totalCost),meta:`${esc(vehicles[vid]?.plate||vid)} · ${esc(o.shop||'')}`}));
-        if(exps) Object.entries(exps).forEach(([id,o])=>items.push({t:'Expense',id,vid,date:o.date||'',label:`${o.category||'Expense'} · ${o.description||''}`,amount:toNum(o.amount),meta:esc(vehicles[vid]?.plate||vid)}));
-        if(trips) Object.entries(trips).forEach(([id,o])=>items.push({t:'Trip',id,vid,date:o.date||'',label:`Trip · ${o.purpose||''}`,amount:0,meta:`${esc(vehicles[vid]?.plate||vid)} · ${toNum(o.distance).toLocaleString()} km`}));
+        const vid=vids[i]; const color=vidColors[vid]||VEHC[0];
+        if(fills) Object.entries(fills).forEach(([id,o])=>items.push({t:'Fuel',id,vid,color,date:o.date||'',label:`Fuel · ${(toNum(o.liters)).toFixed(2)}L`,amount:toNum(o.totalCost),meta:`${esc(vehicles[vid]?.plate||vid)} @ ${toNum(o.odometer).toLocaleString()} km`}));
+        if(svcs) Object.entries(svcs).forEach(([id,o])=>items.push({t:'Service',id,vid,color,date:o.date||'',label:o.items||'Service',amount:toNum(o.totalCost),meta:`${esc(vehicles[vid]?.plate||vid)} · ${esc(o.shop||'')}`}));
+        if(exps) Object.entries(exps).forEach(([id,o])=>items.push({t:'Expense',id,vid,color,date:o.date||'',label:`${o.category||'Expense'} · ${o.description||''}`,amount:toNum(o.amount),meta:esc(vehicles[vid]?.plate||vid)}));
+        if(trips) Object.entries(trips).forEach(([id,o])=>items.push({t:'Trip',id,vid,color,date:o.date||'',label:`Trip · ${o.purpose||''}`,amount:0,meta:`${esc(vehicles[vid]?.plate||vid)} · ${toNum(o.distance).toLocaleString()} km`}));
       });
       items.sort((a,b)=>b.date.localeCompare(a.date));
-      $('recent-list').innerHTML=items.slice(0,15).map(it=>`<div class="item"><div class="item-left"><div class="item-name">${esc(it.label)}</div><div class="item-meta">${esc(it.date)} · ${esc(it.meta)}</div></div><div class="item-amount">${it.amount?fmtMoney(it.amount):''}</div></div>`).join('') || '<div class="item"><div class="item-left"><div class="item-meta">No records yet</div></div></div>';
+      $('recent-list').innerHTML=items.slice(0,15).map(it=>`<div class="item" style="border-left:3px solid ${it.color}"><div class="item-left"><div class="item-name"><span class="veh-chip" style="background:${it.color}22;color:${it.color};font-size:0.68rem;font-weight:600;padding:1px 6px;border-radius:3px;margin-right:4px">${esc(vehicles[it.vid]?.plate||it.vid)}</span>${esc(it.label)}</div><div class="item-meta">${esc(it.date)} · ${esc(it.meta)}</div></div><div class="item-amount">${it.amount?fmtMoney(it.amount):''}</div></div>`).join('') || '<div class="item"><div class="item-left"><div class="item-meta">No records yet</div></div></div>';
     });}
     // All-time stats: total cost, cost/month, cost/km
     if(vids.length){
