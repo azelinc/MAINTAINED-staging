@@ -17,6 +17,7 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.database();
 const APP_VER = 'v1.0-maintained';
+const STAGING = location.hostname.includes('-staging');
 
 /* ─── STATE ─── */
 let currentUser = null;
@@ -37,6 +38,17 @@ function toNum(v){ const n=parseFloat(v); return isNaN(n)?0:n; }
 function showScreen(id){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   $(id).classList.add('active');
+  // staging banner
+  const banner = $('staging-banner');
+  const verSpan = $('staging-ver');
+  if(banner && verSpan && id==='dash-screen'){
+    if(STAGING){
+      banner.classList.remove('hidden');
+      verSpan.textContent = APP_VER;
+    } else {
+      banner.classList.add('hidden');
+    }
+  }
 }
 function todayInput(){ $('fu-date').value=fmtDate(now()); $('mt-date').value=fmtDate(now()); $('ex-date').value=fmtDate(now()); $('tr-date').value=fmtDate(now()); }
 
