@@ -257,7 +257,7 @@ function openVehicle(vid, v){
   $('vehicle-title').textContent = `${esc(v.vehicleType||'Car') === 'Motorcycle' ? '🏍️' : '🚗'} ${esc(v.make||'')} ${esc(v.model||'')} ${esc(v.year||'')}`;
   $('vehicle-meta').textContent = `${esc(v.plate||'')} · ${esc(v.fuelType||'Petrol')} · ${esc(v.vehicleType||'Car')}`;
   $('vehicle-odo').textContent = toNum(v.odometer).toLocaleString();
-  if(!v.trackOdo) $('vehicle-odometer').classList.add('hidden');
+  if(v.trackOdo===false) $('vehicle-odometer').classList.add('hidden');
   else $('vehicle-odometer').classList.remove('hidden');
   showScreen('vehicle-screen');
   applyModules();
