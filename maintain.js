@@ -113,6 +113,7 @@ function exp2Ref(vid){ return uRef('expenses/'+vid); }
 function tripRef(vid){ return uRef('trips/'+vid); }
 function remindRef(vid){ return uRef('reminders/'+vid); }
 function catRef(){ return db.ref('maintained/'+currentUser.uid+'/categories'); }
+function svcItemRef(){ return db.ref('maintained/'+currentUser.uid+'/serviceItems'); }
 
 /* ─── LISTENERS ─── */
 function attachListeners(uid){
@@ -556,7 +557,7 @@ function editFillup(vid, fid){
 
 /* ─── MAINTENANCE FORM ─── */
 let mtAmountStr='';
-function resetMaintenanceForm(){ todayInput(); $('mt-odo').value=''; $('mt-items').value=''; $('mt-shop').value=''; mtAmountStr=''; $('mt-amount').textContent='0.00'; $('mt-next-odo').value=''; $('mt-next-date').value=''; editingRecord=null; $('btn-delete-maintenance').classList.add('hidden');
+function resetMaintenanceForm(){ todayInput(); $('mt-odo').value=''; populateServiceItemSelect('Oil Change'); $('mt-shop').value=''; mtAmountStr=''; $('mt-amount').textContent='0.00'; $('mt-next-odo').value=''; $('mt-next-date').value=''; editingRecord=null; $('btn-delete-maintenance').classList.add('hidden');
   if(activeVehicle) vRef().child(activeVehicle).once('value').then(s=>{ const v=s.val(); if(v) $('mt-odo').value=toNum(v.odometer)||''; });
 }
 function handleMtNumpad(k){
@@ -590,7 +591,7 @@ function editMaintenance(vid, mid){
   maintRef(vid).child(mid).once('value').then(s=>{
     const o=s.val(); if(!o) return;
     editingRecord={type:'maintenance', vehicleId:vid, recordId:mid};
-    $('mt-date').value=o.date||''; $('mt-odo').value=o.odometer||''; $('mt-items').value=o.items||''; $('mt-shop').value=o.shop||''; mtAmountStr=o.totalCost?String(o.totalCost):''; $('mt-amount').textContent=mtAmountStr?parseFloat(mtAmountStr).toFixed(2):'0.00'; $('mt-next-odo').value=o.nextOdo||''; $('mt-next-date').value=o.nextDate||'';
+    $('mt-date').value=o.date||''; $('mt-odo').value=o.odometer||''; populateServiceItemSelect(o.items||''); $('mt-shop').value=o.shop||''; mtAmountStr=o.totalCost?String(o.totalCost):''; $('mt-amount').textContent=mtAmountStr?parseFloat(mtAmountStr).toFixed(2):'0.00'; $('mt-next-odo').value=o.nextOdo||''; $('mt-next-date').value=o.nextDate||'';
     $('btn-delete-maintenance').classList.remove('hidden');
     showScreen('add-maintenance-screen');
   });
@@ -1064,6 +1065,69 @@ $('btn-cat-add').addEventListener('click',()=>{
   });
 });
 
+/* ─── SERVICE ITEMS ─── */
+function renderServiceItemManager(){
+  svcItemRef().once('value').then(s=>{
+    var items=s.val()||{};
+    var entries=Object.entries(items);
+    entries.sort((a,b)=>a[1].localeCompare(b[1]));
+    var h=entries.map(([id,name])=>`<div class="cat-row" data-sid="${esc(id)}">
+      <span class="cat-row-name">${esc(name)}</span>
+      <span class="cat-row-edit" title="Edit">✎</span>
+      <span class="cat-row-del" title="Delete">&times;</span>
+    </div>`).join('');
+    $('svc-item-list').innerHTML=h||'<div style="color:var(--muted);font-size:0.8rem">No items yet</div>';
+    function startEdit(el, sid, curName){
+      var inp=document.createElement('input');
+      inp.type='text'; inp.value=curName; inp.style.cssText='flex:1;font-size:0.85rem;padding:2px 4px;background:var(--surface-2);border:1px solid var(--border);border-radius:4px;color:var(--text)';
+      el.parentNode.replaceChild(inp,el);
+      inp.focus(); inp.select();
+      inp.addEventListener('blur',()=>{ var n=inp.value.trim(); if(n) svcItemRef().child(sid).set(n).then(()=>renderServiceItemManager()); });
+      inp.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); var n=inp.value.trim(); if(n) svcItemRef().child(sid).set(n).then(()=>renderServiceItemManager()); } });
+    }
+    $('svc-item-list').querySelectorAll('.cat-row-name').forEach(el=>{
+      el.addEventListener('click',()=>startEdit(el,el.parentNode.dataset.sid,el.textContent));
+    });
+    $('svc-item-list').querySelectorAll('.cat-row-edit').forEach(el=>{
+      el.addEventListener('click',e=>{
+        e.stopPropagation();
+        var row=el.parentNode; var nameEl=row.querySelector('.cat-row-name');
+        startEdit(nameEl,row.dataset.sid,nameEl.textContent);
+      });
+    });
+    $('svc-item-list').querySelectorAll('.cat-row-del').forEach(el=>{
+      el.addEventListener('click',()=>{
+        svcItemRef().child(el.parentNode.dataset.sid).remove().then(()=>renderServiceItemManager());
+      });
+    });
+  });
+}
+
+function populateServiceItemSelect(selectedVal){
+  var sel=$('mt-items');
+  if(!sel) return;
+  svcItemRef().once('value').then(s=>{
+    var items=s.val()||{};
+    var names=Object.values(items);
+    if(!names.length) names=['Oil Change','Engine Oil','Oil Filter','Air Filter','Brake Pads','Spark Plugs','Tyre Rotation','AC Service','Battery','General Service'];
+    names.sort();
+    sel.innerHTML=names.map(n=>`<option value="${esc(n)}" ${n===selectedVal?'selected':''}>${esc(n)}</option>`).join('');
+    if(selectedVal && !names.includes(selectedVal)){
+      sel.innerHTML+=`<option value="${esc(selectedVal)}" selected>${esc(selectedVal)}</option>`;
+    }
+  });
+}
+
+$('btn-svc-item-add').addEventListener('click',()=>{
+  var inp=$('svc-item-input');
+  var name=inp.value.trim();
+  if(!name) return;
+  svcItemRef().push().set(name).then(()=>{
+    inp.value='';
+    renderServiceItemManager();
+  });
+});
+
 /* ─── SETTINGS ─── */
 $('btn-settings').addEventListener('click',openSettings);
 $('btn-settings-back').addEventListener('click',()=>showScreen('dash-screen'));
@@ -1104,6 +1168,7 @@ function openSettings(){
   var m=settings.modules||{fuel:true,service:true}; $('set-mod-fuel').checked=!!m.fuel; $('set-mod-service').checked=!!m.service;
   $('set-mod-reminders').checked=!!m.reminders;
   renderCategoryManager();
+  renderServiceItemManager();
   showScreen('settings-screen'); 
 }
 
