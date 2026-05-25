@@ -163,7 +163,7 @@ function renderDash(){
     let h='';
     vids.forEach(id=>{
       const v=vehicles[id]; const isMotorcycle=v.vehicleType==='Motorcycle';
-      h+=`<div class="vehicle-card" data-vid="${esc(id)}"><div class="vc-top"><div class="vc-type-badge">${isMotorcycle?'🏍️':'🚗'}</div><div class="vc-info"><div class="vehicle-name">${esc(v.make||'')} ${esc(v.model||'')} ${esc(v.year||'')}</div><div class="vehicle-plate">${esc(v.plate||'')} · ${esc(v.fuelType||'Petrol')}</div></div></div><div class="vc-costs"><div class="vc-stat"><span class="vc-stat-val" id="vccpd-${esc(id)}">—</span><span class="vc-stat-label">/day</span></div><div class="vc-stat"><span class="vc-stat-val" id="vccpkm-${esc(id)}">—</span><span class="vc-stat-label">/km</span></div></div></div>`;
+      h+=`<div class="vehicle-card" data-vid="${esc(id)}"><div class="vc-top"><div class="vc-type-badge">${isMotorcycle?'🏍️':'🚗'}</div><div class="vc-info"><div class="vehicle-name">${esc(v.make||'')} ${esc(v.model||'')} ${esc(v.year||'')}</div><div class="vehicle-plate">${esc(v.plate||'')} · ${esc(v.fuelType||'Petrol')}</div></div></div><div class="vc-costs"><div class="vc-stat"><span class="vc-stat-val" id="vccpd-${esc(id)}">—</span><span class="vc-stat-label">/mo</span></div><div class="vc-stat"><span class="vc-stat-val" id="vccpkm-${esc(id)}">—</span><span class="vc-stat-label">/km</span></div></div></div>`;
     });
     container.innerHTML=h;
     container.querySelectorAll('.vehicle-card[data-vid]').forEach(c=>c.addEventListener('click',()=>openVehicle(c.dataset.vid,vehicles[c.dataset.vid])));
@@ -203,7 +203,7 @@ function renderDash(){
       items.sort((a,b)=>b.date.localeCompare(a.date));
       $('recent-list').innerHTML=items.slice(0,15).map(it=>`<div class="item"><div class="item-left"><div class="item-name">${esc(it.label)}</div><div class="item-meta">${esc(it.date)} · ${esc(it.meta)}</div></div><div class="item-amount">${it.amount?fmtMoney(it.amount):''}</div></div>`).join('') || '<div class="item"><div class="item-left"><div class="item-meta">No records yet</div></div></div>';
     });}
-    // All-time stats: total cost, cost/day, cost/km
+    // All-time stats: total cost, cost/month, cost/km
     if(vids.length){
       const allP = vids.map(vid=>Promise.all([
         fillRef(vid).once('value').then(s=>s.val()||{}),
@@ -231,7 +231,8 @@ function renderDash(){
           if(vehDist===0 && minOdo<maxOdo){ vehDist=maxOdo-minOdo; totalDist+=vehDist; }
           // Update this vehicle's card stats
           const vehDays=vehEarliest?Math.max(1,Math.ceil((now()-new Date(vehEarliest))/86400000)):1;
-          const cpdEl=$('vccpd-'+vid); if(cpdEl) cpdEl.textContent=fmtMoney(vehCost/vehDays);
+          const vehMonths=Math.max(0.5, vehDays/30);
+          const cpdEl=$('vccpd-'+vid); if(cpdEl) cpdEl.textContent=fmtMoney(vehCost/vehMonths);
           const cpkmEl=$('vccpkm-'+vid);
           if(cpkmEl){
             if(v.trackOdo!==false && vehDist>0) cpkmEl.textContent=fmtMoney(vehCost/vehDist);
@@ -240,7 +241,8 @@ function renderDash(){
         });
         $('alltime-cost').textContent = fmtMoney(totalCost);
         const days = earliestDate ? Math.max(1, Math.ceil((now()-new Date(earliestDate))/86400000)) : 1;
-        $('alltime-cpd').textContent = fmtMoney(totalCost/days);
+        const months = Math.max(0.5, days/30);
+        $('alltime-cpd').textContent = fmtMoney(totalCost/months);
         if(totalDist>0) $('alltime-cpkm').textContent = fmtMoney(totalCost/totalDist);
         else $('alltime-cpkm').textContent = '—';
       });
