@@ -439,7 +439,7 @@ function loadVehicleTabs(vid){
   maintRef(vid).once('value').then(s=>{
     const o=s.val()||{};
     let items=Object.entries(o).map(([id,r])=>({id,...r})).sort((a,b)=> (b.date||'').localeCompare(a.date||''));
-    $('maintenance-list').innerHTML = items.length ? items.map(r=>`<div class="item" data-mid="${esc(r.id)}"><div class="item-left"><div class="item-name">${esc(r.items||'Service')}</div><div class="item-meta">${fmtDate2(r.date)} · ${esc(r.shop||'')} · Odo ${toNum(r.odometer).toLocaleString()}</div></div><div class="item-amount">${fmtMoney(toNum(r.totalCost))} <button class="btn-xs btn-ghost remind-svc-btn" data-label="${esc(r.items||'Service')}" data-date="${r.date||''}" data-odo="${toNum(r.odometer)}" style="font-size:0.7rem;margin-left:4px">🔔</button></div></div>`).join('') : '<div class="item"><div class="item-left"><div class="item-meta">No service records</div></div></div>';
+    $('maintenance-list').innerHTML = items.length ? items.map(r=>`<div class="item" data-mid="${esc(r.id)}"><div class="item-left"><div class="item-name">${esc(r.items||'Service')}${r.remarks?' <span style="color:var(--muted);font-size:0.7rem;font-style:italic">'+esc(r.remarks)+'</span>':''}</div><div class="item-meta">${fmtDate2(r.date)} · ${esc(r.shop||'')} · Odo ${toNum(r.odometer).toLocaleString()} <button class="btn-xs btn-ghost remind-svc-btn" data-label="${esc(r.items||'Service')}" data-date="${r.date||''}" data-odo="${toNum(r.odometer)}" style="font-size:0.65rem">🔔</button></div></div><div class="item-amount">${fmtMoney(toNum(r.totalCost))}</div></div>`).join('') : '<div class="item"><div class="item-left"><div class="item-meta">No service records</div></div></div>';
     $('maintenance-list').querySelectorAll('.item[data-mid]').forEach(el=>el.addEventListener('click',()=>editMaintenance(vid,el.dataset.mid)));
     // 🔔 buttons
     $('maintenance-list').querySelectorAll('.remind-svc-btn').forEach(btn=>{
@@ -458,7 +458,7 @@ function loadVehicleTabs(vid){
   exp2Ref(vid).once('value').then(s=>{
     const o=s.val()||{};
     let items=Object.entries(o).map(([id,r])=>({id,...r})).sort((a,b)=> (b.date||'').localeCompare(a.date||''));
-    $('expense-list').innerHTML = items.length ? items.map(r=>`<div class="item" data-eid="${esc(r.id)}"><div class="item-left"><div class="item-name">${esc(r.category||'Expense')}${r.description?' · '+esc(r.description):''}</div><div class="item-meta">${fmtDate2(r.date)}${r.odometer?' · Odo '+toNum(r.odometer).toLocaleString()+' km':''}</div></div><div class="item-amount">${fmtMoney(toNum(r.amount))} <button class="btn-xs btn-ghost remind-exp-btn" data-label="${esc(r.category||'Expense')}${r.description?' · '+esc(r.description):''}" data-date="${r.date||''}" data-odo="${toNum(r.odometer)}" style="font-size:0.7rem;margin-left:4px">🔔</button></div></div>`).join('') : '<div class="item"><div class="item-left"><div class="item-meta">No expenses</div></div></div>';
+    $('expense-list').innerHTML = items.length ? items.map(r=>`<div class="item" data-eid="${esc(r.id)}"><div class="item-left"><div class="item-name">${esc(r.category||'Expense')}${r.description?' · '+esc(r.description):''}</div><div class="item-meta">${fmtDate2(r.date)}${r.odometer?' · Odo '+toNum(r.odometer).toLocaleString()+' km':''} <button class="btn-xs btn-ghost remind-exp-btn" data-label="${esc(r.category||'Expense')}${r.description?' · '+esc(r.description):''}" data-date="${r.date||''}" data-odo="${toNum(r.odometer)}" style="font-size:0.65rem">🔔</button></div></div><div class="item-amount">${fmtMoney(toNum(r.amount))}</div></div>`).join('') : '<div class="item"><div class="item-left"><div class="item-meta">No expenses</div></div></div>';
     $('expense-list').querySelectorAll('.item[data-eid]').forEach(el=>el.addEventListener('click',()=>editExpense(vid,el.dataset.eid)));
     // 🔔 buttons
     $('expense-list').querySelectorAll('.remind-exp-btn').forEach(btn=>{
@@ -611,7 +611,7 @@ function editFillup(vid, fid){
 
 /* ─── MAINTENANCE FORM ─── */
 let mtAmountStr='';
-function resetMaintenanceForm(){ todayInput(); $('mt-odo').value=''; populateServiceItemSelect('Oil Change'); $('mt-shop').value=''; mtAmountStr=''; $('mt-amount').textContent='0.00'; $('mt-next-odo').value=''; $('mt-next-date').value=''; editingRecord=null; $('btn-delete-maintenance').classList.add('hidden');
+function resetMaintenanceForm(){ todayInput(); $('mt-odo').value=''; populateServiceItemSelect('Oil Change'); $('mt-remarks').value=''; $('mt-shop').value=''; mtAmountStr=''; $('mt-amount').textContent='0.00'; $('mt-next-odo').value=''; $('mt-next-date').value=''; editingRecord=null; $('btn-delete-maintenance').classList.add('hidden');
   if(activeVehicle) vRef().child(activeVehicle).once('value').then(s=>{ const v=s.val(); if(v) $('mt-odo').value=toNum(v.odometer)||''; });
 }
 function handleMtNumpad(k){
@@ -628,7 +628,7 @@ $('btn-save-maintenance').addEventListener('click',()=>{
   if(!activeVehicle) return;
   const odo=toNum($('mt-odo').value); const amt=mtAmountStr?parseFloat(mtAmountStr):0;
   if(!$('mt-items').value.trim()){ alert('Please describe the service items'); return; }
-  const rec={ date:$('mt-date').value, odometer: odo, items: $('mt-items').value.trim(), shop: $('mt-shop').value.trim(), totalCost: amt, nextOdo: toNum($('mt-next-odo').value)||null, nextDate: $('mt-next-date').value||null, createdAt: firebase.database.ServerValue.TIMESTAMP };
+  const rec={ date:$('mt-date').value, odometer: odo, items: $('mt-items').value.trim(), remarks: $('mt-remarks').value.trim(), shop: $('mt-shop').value.trim(), totalCost: amt, nextOdo: toNum($('mt-next-odo').value)||null, nextDate: $('mt-next-date').value||null, createdAt: firebase.database.ServerValue.TIMESTAMP };
   const key = editingRecord && editingRecord.type==='maintenance' ? editingRecord.recordId : maintRef(activeVehicle).push().key;
   Promise.all([
     maintRef(activeVehicle).child(key).set(rec),
@@ -645,7 +645,7 @@ function editMaintenance(vid, mid){
   maintRef(vid).child(mid).once('value').then(s=>{
     const o=s.val(); if(!o) return;
     editingRecord={type:'maintenance', vehicleId:vid, recordId:mid};
-    $('mt-date').value=o.date||''; $('mt-odo').value=o.odometer||''; populateServiceItemSelect(o.items||''); $('mt-shop').value=o.shop||''; mtAmountStr=o.totalCost?String(o.totalCost):''; $('mt-amount').textContent=mtAmountStr?parseFloat(mtAmountStr).toFixed(2):'0.00'; $('mt-next-odo').value=o.nextOdo||''; $('mt-next-date').value=o.nextDate||'';
+    $('mt-date').value=o.date||''; $('mt-odo').value=o.odometer||''; populateServiceItemSelect(o.items||''); $('mt-remarks').value=o.remarks||''; $('mt-shop').value=o.shop||''; mtAmountStr=o.totalCost?String(o.totalCost):''; $('mt-amount').textContent=mtAmountStr?parseFloat(mtAmountStr).toFixed(2):'0.00'; $('mt-next-odo').value=o.nextOdo||''; $('mt-next-date').value=o.nextDate||'';
     $('btn-delete-maintenance').classList.remove('hidden');
     showScreen('add-maintenance-screen');
   });
