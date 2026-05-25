@@ -259,6 +259,7 @@ function openVehicle(vid, v){
   if(!v.trackOdo) $('vehicle-odometer').classList.add('hidden');
   else $('vehicle-odometer').classList.remove('hidden');
   showScreen('vehicle-screen');
+  applyModules();
   loadVehicleTabs(vid);
   // Set default trip start from last end
   tripRef(vid).once('value').then(s=>{ const o=s.val()||{}; const arr=Object.values(o).sort((a,b)=>b.date?.localeCompare(a.date)||0); if(arr[0]) $('tr-start').value = arr[0].endOdo||''; });
