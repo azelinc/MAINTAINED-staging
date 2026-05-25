@@ -346,11 +346,12 @@ function computeAllInCostPerKm(vid){
   ]).then(([fills,svcs,exps,trips])=>{
     let totalCost=0, totalDist=0;
     let minOdo=Infinity, maxOdo=-Infinity;
+    let earliestDate=null;
     // Sum all costs
-    Object.values(fills).forEach(o=>{ totalCost+=toNum(o.totalCost); const odo=toNum(o.odometer); if(odo>0){ if(odo<minOdo)minOdo=odo; if(odo>maxOdo)maxOdo=odo; } });
-    Object.values(svcs).forEach(o=>{ totalCost+=toNum(o.totalCost); const odo=toNum(o.odometer); if(odo>0){ if(odo<minOdo)minOdo=odo; if(odo>maxOdo)maxOdo=odo; } });
-    Object.values(exps).forEach(o=>{ totalCost+=toNum(o.amount); });
-    Object.values(trips).forEach(o=>{ totalDist+=toNum(o.distance||o.endOdo-o.startOdo); });
+    Object.values(fills).forEach(o=>{ totalCost+=toNum(o.totalCost); const odo=toNum(o.odometer); if(odo>0){ if(odo<minOdo)minOdo=odo; if(odo>maxOdo)maxOdo=odo; } if(o.date&&(!earliestDate||o.date<earliestDate)) earliestDate=o.date; });
+    Object.values(svcs).forEach(o=>{ totalCost+=toNum(o.totalCost); const odo=toNum(o.odometer); if(odo>0){ if(odo<minOdo)minOdo=odo; if(odo>maxOdo)maxOdo=odo; } if(o.date&&(!earliestDate||o.date<earliestDate)) earliestDate=o.date; });
+    Object.values(exps).forEach(o=>{ totalCost+=toNum(o.amount); if(o.date&&(!earliestDate||o.date<earliestDate)) earliestDate=o.date; });
+    Object.values(trips).forEach(o=>{ totalDist+=toNum(o.distance||o.endOdo-o.startOdo); if(o.date&&(!earliestDate||o.date<earliestDate)) earliestDate=o.date; });
     // Distance from fill-up deltas
     const fillArr=Object.values(fills).sort((a,b)=>(a.date||'').localeCompare(b.date||''));
     for(let i=1;i<fillArr.length;i++){ if(fillArr[i].partial) continue; const d=toNum(fillArr[i].odometer)-toNum(fillArr[i-1].odometer); if(d>0) totalDist+=d; }
@@ -358,6 +359,10 @@ function computeAllInCostPerKm(vid){
     if(totalDist===0 && minOdo<maxOdo) totalDist=maxOdo-minOdo;
     if(totalCost>0 && totalDist>0) $('stat-costkm').textContent=fmtMoney(totalCost/totalDist);
     else if(totalCost>0 && totalDist===0) $('stat-costkm').textContent='—';
+    // Cost/month
+    const days=earliestDate?Math.max(1,Math.ceil((now()-new Date(earliestDate))/86400000)):1;
+    const months=Math.max(0.5, days/30);
+    $('stat-costmonth').textContent=totalCost>0?fmtMoney(totalCost/months):'—';
   });
 }
 
