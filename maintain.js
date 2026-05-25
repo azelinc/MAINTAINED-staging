@@ -190,7 +190,7 @@ function renderDash(){
     vids.forEach(id=>{
       const v=vehicles[id]; const isMotorcycle=v.vehicleType==='Motorcycle';
       const vc=vidColors[id]||'#ef4444';
-      h+=`<div class="vehicle-card" data-vid="${esc(id)}"><div class="vc-top"><div class="vc-type-badge" style="background:${vc}33;border:2px solid ${vc}">${isMotorcycle?'🏍️':'🚗'}</div><div class="vc-info"><div class="vehicle-name">${esc(v.make||'')} ${esc(v.model||'')} ${esc(v.year||'')}</div><div class="vehicle-plate">${esc(v.plate||'')} · ${esc(v.fuelType||'Petrol')}</div></div></div><div class="vc-costs"><div class="vc-stat"><span class="vc-stat-val" id="vccpd-${esc(id)}">—</span><span class="vc-stat-label">/mo</span></div><div class="vc-stat"><span class="vc-stat-val" id="vccpkm-${esc(id)}">—</span><span class="vc-stat-label">/km</span></div></div></div>`;
+      h+=`<div class="vehicle-card" data-vid="${esc(id)}" style="border-left:4px solid ${vc}"><div class="vc-top"><span class="vc-dot" style="background:${vc}"></span><span style="font-size:1rem">${isMotorcycle?'🏍️':'🚗'}</span><div class="vc-info"><div class="vehicle-name">${esc(v.make||'')} ${esc(v.model||'')} ${esc(v.year||'')}</div><div class="vehicle-plate">${esc(v.plate||'')} · ${esc(v.fuelType||'Petrol')}</div></div></div><div class="vc-costs"><div class="vc-stat"><span class="vc-stat-val" id="vccpd-${esc(id)}">—</span><span class="vc-stat-label">/mo</span></div><div class="vc-stat"><span class="vc-stat-val" id="vccpkm-${esc(id)}">—</span><span class="vc-stat-label">/km</span></div></div></div>`;
     });
     container.innerHTML=h;
     container.querySelectorAll('.vehicle-card[data-vid]').forEach(c=>c.addEventListener('click',()=>openVehicle(c.dataset.vid,vehicles[c.dataset.vid])));
@@ -312,6 +312,13 @@ function openVehicle(vid, v){
   else $('vehicle-odometer').classList.remove('hidden');
   showScreen('vehicle-screen');
   applyModules();
+  // reset to stats tab
+  document.querySelectorAll('.tab-btn').forEach(x=>x.classList.remove('active'));
+  const statsTab=document.querySelector('.tab-btn[data-tab="stats"]');
+  if(statsTab) statsTab.classList.add('active');
+  document.querySelectorAll('.tab-panel').forEach(x=>x.classList.remove('active'));
+  var tp=$('tab-stats'); if(tp) tp.classList.add('active');
+  var fab=$('btn-add-record'); if(fab) fab.classList.add('hidden');
   loadVehicleTabs(vid);
   // Set default trip start from last end
   tripRef(vid).once('value').then(s=>{ const o=s.val()||{}; const arr=Object.values(o).sort((a,b)=>b.date?.localeCompare(a.date)||0); if(arr[0]) $('tr-start').value = arr[0].endOdo||''; });
@@ -438,6 +445,9 @@ document.querySelectorAll('.tab-btn').forEach(b=>{
     document.querySelectorAll('.tab-panel').forEach(x=>x.classList.remove('active'));
     b.classList.add('active');
     $(`tab-${b.dataset.tab}`).classList.add('active');
+    const tab=b.dataset.tab;
+    const fab=$('btn-add-record');
+    if(fab) fab.classList.toggle('hidden', tab==='stats');
   });
 });
 
@@ -691,23 +701,53 @@ window.deleteReminder=function(vid,rid){
 
 function showReminderForm(){
   if(!activeVehicle) return;
-  var label=prompt('Reminder label (e.g. Renew Road Tax):');
-  if(!label) return;
-  var type=confirm('Date-based? (OK=date, Cancel=odometer)')?'date':'odo';
-  var dueDate=null, dueOdo=null, desc='';
-  if(type==='date'){
-    var d=prompt('Due date (YYYY-MM-DD):');
-    if(!d) return;
-    dueDate=d;
-  } else {
-    var o=prompt('Due odometer (km):');
-    if(!o) return;
-    dueOdo=parseInt(o);
-  }
-  desc=prompt('Optional note:')||'';
-  var rec={label:label,dueType:type,dueDate:dueDate,dueOdo:dueOdo,desc:desc,enabled:true,createdAt:firebase.database.ServerValue.TIMESTAMP};
-  remindRef(activeVehicle).push().set(rec).then(()=>{ loadVehicleReminders(activeVehicle); });
+  const modal=$('reminder-modal');
+  $('rem-label').value='';
+  $('rem-type').value='date';
+  $('rem-period').value='1y';
+  $('rem-due-date').value='';
+  $('rem-due-odo').value='';
+  $('rem-note').value='';
+  updateRemFormFields();
+  modal.classList.remove('hidden');
 }
+$('btn-reminder-close').addEventListener('click',()=>$('reminder-modal').classList.add('hidden'));
+$('rem-type').addEventListener('change',updateRemFormFields);
+$('rem-period').addEventListener('change',updateRemFormFields);
+function updateRemFormFields(){
+  const typ=$('rem-type').value;
+  const period=$('rem-period').value;
+  // Date-based
+  $('rem-period-field').classList.toggle('hidden',typ!=='date');
+  $('rem-custom-date-field').classList.toggle('hidden',typ!=='date'||period!=='custom');
+  $('rem-odo-field').classList.toggle('hidden',typ!=='odo');
+}
+$('btn-save-reminder').addEventListener('click',()=>{
+  const label=$('rem-label').value.trim();
+  if(!label){ alert('Enter a label'); return; }
+  const typ=$('rem-type').value;
+  let dueDate=null, dueOdo=null;
+  if(typ==='date'){
+    const period=$('rem-period').value;
+    if(period==='custom'){
+      dueDate=$('rem-due-date').value;
+      if(!dueDate){ alert('Select a due date'); return; }
+    } else {
+      const months={m:1,'3m':3,'6m':6,y:12,'2y':24}[period.replace(/[0-9]/g,'')] * (parseInt(period)||1);
+      const d=new Date(); d.setMonth(d.getMonth()+months);
+      dueDate=fmtDate(d);
+    }
+  } else {
+    dueOdo=parseInt($('rem-due-odo').value)||0;
+    if(!dueOdo){ alert('Enter odometer value'); return; }
+  }
+  const desc=$('rem-note').value.trim();
+  const rec={label:label,dueType:typ,dueDate:dueDate,dueOdo:dueOdo,desc:desc,enabled:true,createdAt:firebase.database.ServerValue.TIMESTAMP};
+  remindRef(activeVehicle).push().set(rec).then(()=>{
+    $('reminder-modal').classList.add('hidden');
+    loadVehicleReminders(activeVehicle);
+  });
+});
 
 /* ─── SETTINGS ─── */
 $('btn-settings').addEventListener('click',openSettings);

@@ -115,10 +115,10 @@ html, body {
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; cursor: pointer;
 }
 .vehicle-card:hover { border-color: var(--accent); }
-.vc-top { display: flex; align-items: center; gap: 12px; }
-.vc-type-badge {
-  width: 36px; height: 36px; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center; font-size: 1.1rem; flex-shrink: 0;
+.vc-top { display: flex; align-items: center; gap: 8px; }
+.vc-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  display: inline-block; flex-shrink: 0;
 }
 .vc-info { flex: 1; min-width: 0; }
 .vehicle-name { font-weight: 600; font-size: 1rem; }
@@ -224,13 +224,31 @@ html, body {
 .qa-btn:active { background: var(--accent); color: #fff; }
 
 /* ALLTIME STATS */
-.alltime-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; padding: 0 12px 12px; }
+.alltime-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 0 12px 12px; }
 .alltime-card {
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
-  padding: 8px 6px; text-align: center;
+  padding: 10px 8px; text-align: center;
 }
 .alltime-label { font-size: 0.6rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.2px; margin-bottom: 2px; }
 .alltime-num { font-size: 0.85rem; font-weight: 700; color: var(--accent); }
+
+/* MODAL */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1000; padding: 20px;
+}
+.modal-overlay.hidden { display: none; }
+.modal-box {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  width: 100%; max-width: 380px; max-height: 90vh; overflow-y: auto;
+}
+.modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 16px; border-bottom: 1px solid var(--border);
+}
+.modal-title { font-weight: 600; font-size: 1rem; }
+.modal-body { padding: 16px; }
 
 /* SETTINGS */
 .settings-body { padding: 16px 20px 80px; max-width: 480px; margin: 0 auto; }

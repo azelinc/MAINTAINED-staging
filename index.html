@@ -120,6 +120,31 @@
     <button id="btn-add-record" class="fab">+</button>
   </section>
 
+  <!-- REMINDER MODAL -->
+  <div id="reminder-modal" class="modal-overlay hidden">
+    <div class="modal-box">
+      <div class="modal-header">
+        <span class="modal-title">Add Reminder</span>
+        <button class="btn-ghost btn-sm" id="btn-reminder-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="field"><label>Label</label><input type="text" id="rem-label" placeholder="e.g. Renew Insurance" autocomplete="off" list="rem-label-suggestions">
+          <datalist id="rem-label-suggestions"><option>Renew Insurance"><option>Renew Road Tax"><option>Oil Change"><option>Brake Service"><option>Tyre Rotation"><option>Air Filter"><option>Battery Check"><option>AC Service"></datalist>
+        </div>
+        <div class="field"><label>Reminder Type</label>
+          <select id="rem-type"><option value="date">Date-based</option><option value="odo">Odometer-based</option></select>
+        </div>
+        <div class="field" id="rem-period-field"><label>Period</label>
+          <select id="rem-period"><option value="1m">1 month</option><option value="3m">3 months</option><option value="6m">6 months</option><option value="1y" selected>1 year</option><option value="2y">2 years</option><option value="custom">Custom date</option></select>
+        </div>
+        <div class="field hidden" id="rem-custom-date-field"><label>Due Date</label><input type="date" id="rem-due-date"></div>
+        <div class="field hidden" id="rem-odo-field"><label>Due at Odometer (km)</label><input type="number" id="rem-due-odo" placeholder="e.g. 25000"></div>
+        <div class="field"><label>Note (optional)</label><input type="text" id="rem-note" placeholder="Optional note" autocomplete="off"></div>
+        <button id="btn-save-reminder" class="btn-primary btn-lg" style="width:100%;margin-top:8px">Save Reminder</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ADD VEHICLE -->
   <section id="add-vehicle-screen" class="screen">
     <header class="add-header">
