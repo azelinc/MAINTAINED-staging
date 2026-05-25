@@ -383,16 +383,38 @@ function loadVehicleTabs(vid){
   maintRef(vid).once('value').then(s=>{
     const o=s.val()||{};
     let items=Object.entries(o).map(([id,r])=>({id,...r})).sort((a,b)=> (b.date||'').localeCompare(a.date||''));
-    $('maintenance-list').innerHTML = items.length ? items.map(r=>`<div class="item" data-mid="${esc(r.id)}"><div class="item-left"><div class="item-name">${esc(r.items||'Service')}</div><div class="item-meta">${fmtDate2(r.date)} · ${esc(r.shop||'')} · Odo ${toNum(r.odometer).toLocaleString()}</div></div><div class="item-amount">${fmtMoney(toNum(r.totalCost))}</div></div>`).join('') : '<div class="item"><div class="item-left"><div class="item-meta">No service records</div></div></div>';
+    $('maintenance-list').innerHTML = items.length ? items.map(r=>`<div class="item" data-mid="${esc(r.id)}"><div class="item-left"><div class="item-name">${esc(r.items||'Service')}</div><div class="item-meta">${fmtDate2(r.date)} · ${esc(r.shop||'')} · Odo ${toNum(r.odometer).toLocaleString()}</div></div><div class="item-amount">${fmtMoney(toNum(r.totalCost))} <button class="btn-xs btn-ghost remind-svc-btn" data-label="${esc(r.items||'Service')}" data-date="${r.date||''}" data-odo="${toNum(r.odometer)}" style="font-size:0.7rem;margin-left:4px">🔔</button></div></div>`).join('') : '<div class="item"><div class="item-left"><div class="item-meta">No service records</div></div></div>';
     $('maintenance-list').querySelectorAll('.item[data-mid]').forEach(el=>el.addEventListener('click',()=>editMaintenance(vid,el.dataset.mid)));
+    // 🔔 buttons
+    $('maintenance-list').querySelectorAll('.remind-svc-btn').forEach(btn=>{
+      btn.addEventListener('click',e=>{
+        e.stopPropagation();
+        showReminderForm('add',null,null,{
+          label:btn.dataset.label, date:btn.dataset.date, odo:parseInt(btn.dataset.odo)||0,
+          refLabel:btn.dataset.label,
+          refDetail:btn.dataset.date+' · Odo '+(parseInt(btn.dataset.odo)||0).toLocaleString()
+        });
+      });
+    });
   });
   }
   // Expense list
   exp2Ref(vid).once('value').then(s=>{
     const o=s.val()||{};
     let items=Object.entries(o).map(([id,r])=>({id,...r})).sort((a,b)=> (b.date||'').localeCompare(a.date||''));
-    $('expense-list').innerHTML = items.length ? items.map(r=>`<div class="item" data-eid="${esc(r.id)}"><div class="item-left"><div class="item-name">${esc(r.category||'Expense')}${r.description?' · '+esc(r.description):''}</div><div class="item-meta">${fmtDate2(r.date)}${r.odometer?' · Odo '+toNum(r.odometer).toLocaleString()+' km':''}</div></div><div class="item-amount">${fmtMoney(toNum(r.amount))}</div></div>`).join('') : '<div class="item"><div class="item-left"><div class="item-meta">No expenses</div></div></div>';
+    $('expense-list').innerHTML = items.length ? items.map(r=>`<div class="item" data-eid="${esc(r.id)}"><div class="item-left"><div class="item-name">${esc(r.category||'Expense')}${r.description?' · '+esc(r.description):''}</div><div class="item-meta">${fmtDate2(r.date)}${r.odometer?' · Odo '+toNum(r.odometer).toLocaleString()+' km':''}</div></div><div class="item-amount">${fmtMoney(toNum(r.amount))} <button class="btn-xs btn-ghost remind-exp-btn" data-label="${esc(r.category||'Expense')}${r.description?' · '+esc(r.description):''}" data-date="${r.date||''}" data-odo="${toNum(r.odometer)}" style="font-size:0.7rem;margin-left:4px">🔔</button></div></div>`).join('') : '<div class="item"><div class="item-left"><div class="item-meta">No expenses</div></div></div>';
     $('expense-list').querySelectorAll('.item[data-eid]').forEach(el=>el.addEventListener('click',()=>editExpense(vid,el.dataset.eid)));
+    // 🔔 buttons
+    $('expense-list').querySelectorAll('.remind-exp-btn').forEach(btn=>{
+      btn.addEventListener('click',e=>{
+        e.stopPropagation();
+        showReminderForm('add',null,null,{
+          label:btn.dataset.label, date:btn.dataset.date, odo:parseInt(btn.dataset.odo)||0,
+          refLabel:btn.dataset.label,
+          refDetail:btn.dataset.date+(parseInt(btn.dataset.odo)?' · Odo '+(parseInt(btn.dataset.odo)||0).toLocaleString()+' km':'')
+        });
+      });
+    });
   });
   // Trip list
   tripRef(vid).once('value').then(s=>{
@@ -682,7 +704,7 @@ function loadVehicleReminders(vid){
     items.sort((a,b)=>(a.dueDate||'').localeCompare(b.dueDate||''));
     $('reminder-list').innerHTML=items.length?items.map(r=>`<div class="item" data-rid="${esc(r.id)}" style="cursor:pointer">
 <div class="item-left"><div class="item-name">${esc(r.label)}${r.enabled===false?' <span style="color:var(--muted);font-size:0.68rem">(paused)</span>':''}</div>
-<div class="item-meta">${r.dueType==='odo'?'Due at '+toNum(r.dueOdo).toLocaleString()+' km':r.dueDate||''} &middot; ${r.desc||''}</div></div>
+<div class="item-meta">${r.dueType==='odo'?'Due at '+toNum(r.dueOdo).toLocaleString()+' km':r.dueDate||''}${r.interval?' · Every '+r.interval:''}${r.refLabel?'<br><span style="color:var(--muted);font-size:0.65rem">'+esc(r.refLabel)+'</span>':''}${r.desc?' &middot; '+esc(r.desc):''}</div></div>
 <div class="item-amount">
   <button class="btn-xs btn-ghost" onclick="event.stopPropagation();window.toggleReminder('${esc(vid)}','${esc(r.id)}',${r.enabled!==false})">${r.enabled===false?'Resume':'Pause'}</button>
 </div></div>`).join(''):'<div class="item"><div class="item-left"><div class="item-meta">No reminders &mdash; tap + to add</div></div></div>';
@@ -704,11 +726,12 @@ window.toggleReminder=function(vid,rid,curEnabled){
 window._editingReminderId=null;
 window._remModalMode='add';
 
-function showReminderForm(mode, rid, data){
+function showReminderForm(mode, rid, data, ctx){
   if(!activeVehicle) return;
   mode=mode||'add';
   window._remModalMode=mode;
   window._editingReminderId=rid||null;
+  window._remCtx=ctx||null;
   const modal=$('reminder-modal');
   const title=$('rem-modal-title');
   const formFields=$('rem-form-fields');
@@ -735,26 +758,42 @@ function showReminderForm(mode, rid, data){
   deleteBtn.classList.toggle('hidden',mode!=='edit');
 
   if(data){
+    // Edit: pre-fill from existing reminder data
     $('rem-label').value=data.label||'';
     $('rem-type').value=data.dueType||'date';
-    $('rem-due-odo').value=data.dueOdo||'';
-    $('rem-note').value=data.desc||'';
-    if(data.dueDate){
-      $('rem-period').value='custom';
-      $('rem-due-date').value=data.dueDate;
+    if(data.dueType==='odo'){
+      $('rem-interval-odo').value=10000; // won't know original interval
     } else {
-      $('rem-period').value='1y';
-      $('rem-due-date').value='';
+      $('rem-interval-val').value=12;
+      $('rem-interval-unit').value='months';
     }
+    $('rem-note').value=data.desc||'';
+    // Show reference from stored data if available
+    $('rem-ref-info').style.display=data.refLabel?'block':'none';
+    if(data.refLabel){ $('rem-ref-label').textContent=data.refLabel; $('rem-ref-detail').textContent=data.refDetail||''; }
+  } else if(ctx){
+    // From expense/service: pre-fill from context
+    $('rem-label').value=ctx.label||'';
+    $('rem-type').value='date';
+    $('rem-interval-val').value=12;
+    $('rem-interval-unit').value='months';
+    $('rem-interval-odo').value=10000;
+    $('rem-note').value='';
+    $('rem-ref-info').style.display='block';
+    $('rem-ref-label').textContent=ctx.refLabel||'';
+    $('rem-ref-detail').textContent=ctx.refDetail||'';
   } else {
+    // Fresh add
     $('rem-label').value='';
     $('rem-type').value='date';
-    $('rem-period').value='1y';
-    $('rem-due-date').value='';
-    $('rem-due-odo').value='';
+    $('rem-interval-val').value=12;
+    $('rem-interval-unit').value='months';
+    $('rem-interval-odo').value=10000;
     $('rem-note').value='';
+    $('rem-ref-info').style.display='none';
   }
   updateRemFormFields();
+  updateRemDuePreview();
   modal.classList.remove('hidden');
 }
 
@@ -762,22 +801,43 @@ function closeReminderModal(){
   $('reminder-modal').classList.add('hidden');
   window._editingReminderId=null;
   window._remModalMode='add';
+  window._remCtx=null;
 }
 
 $('btn-reminder-close').addEventListener('click',closeReminderModal);
 $('btn-rem-cancel-delete').addEventListener('click',closeReminderModal);
-$('rem-type').addEventListener('change',updateRemFormFields);
-$('rem-period').addEventListener('change',updateRemFormFields);
+$('rem-type').addEventListener('change',()=>{ updateRemFormFields(); updateRemDuePreview(); });
+$('rem-interval-val').addEventListener('input',updateRemDuePreview);
+$('rem-interval-unit').addEventListener('change',updateRemDuePreview);
+$('rem-interval-odo').addEventListener('input',updateRemDuePreview);
 
 function updateRemFormFields(){
   const typ=$('rem-type').value;
-  const period=$('rem-period').value;
-  $('rem-period-field').classList.toggle('hidden',typ!=='date');
-  $('rem-custom-date-field').classList.toggle('hidden',typ!=='date'||period!=='custom');
-  $('rem-odo-field').classList.toggle('hidden',typ!=='odo');
+  $('rem-interval-field').classList.toggle('hidden',typ!=='date');
+  $('rem-odo-interval-field').classList.toggle('hidden',typ!=='odo');
 }
 
-// Delete button in edit mode → switch to delete confirm
+function updateRemDuePreview(){
+  const typ=$('rem-type').value;
+  const el=$('rem-due-preview');
+  const ctx=window._remCtx;
+  if(typ==='date'){
+    const val=parseInt($('rem-interval-val').value)||12;
+    const unit=$('rem-interval-unit').value;
+    const months=unit==='years'?val*12:val;
+    // Base date from context (record date) or today
+    const baseDate=ctx&&ctx.date?new Date(ctx.date):new Date();
+    const due=new Date(baseDate); due.setMonth(due.getMonth()+months);
+    el.textContent='Due: '+fmtDate(due);
+  } else {
+    const interval=parseInt($('rem-interval-odo').value)||10000;
+    const baseOdo=ctx&&ctx.odo?ctx.odo:0;
+    const dueOdo=baseOdo+interval;
+    el.textContent='Due at: '+dueOdo.toLocaleString()+' km';
+  }
+}
+
+// Delete button in edit mode
 $('btn-rem-delete').addEventListener('click',()=>{
   if(window._remModalMode==='edit' && window._editingReminderId){
     showReminderForm('delete',window._editingReminderId);
@@ -794,7 +854,6 @@ $('btn-rem-confirm-delete').addEventListener('click',()=>{
   });
 });
 
-// External delete (from × button) — deprecated, use modal edit+delete instead
 window.deleteReminder=function(vid,rid){
   showReminderForm('delete',rid);
 };
@@ -806,22 +865,28 @@ $('btn-save-reminder').addEventListener('click',()=>{
   if(!label){ errEl.textContent='Enter a label'; errEl.style.display='block'; return; }
   const typ=$('rem-type').value;
   let dueDate=null, dueOdo=null;
+  const ctx=window._remCtx;
   if(typ==='date'){
-    const period=$('rem-period').value;
-    if(period==='custom'){
-      dueDate=$('rem-due-date').value;
-      if(!dueDate){ errEl.textContent='Select a due date'; errEl.style.display='block'; return; }
-    } else {
-      const months={m:1,'3m':3,'6m':6,y:12,'2y':24}[period.replace(/[0-9]/g,'')] * (parseInt(period)||1);
-      const d=new Date(); d.setMonth(d.getMonth()+months);
-      dueDate=fmtDate(d);
-    }
+    const val=parseInt($('rem-interval-val').value)||12;
+    const unit=$('rem-interval-unit').value;
+    const months=unit==='years'?val*12:val;
+    const baseDate=ctx&&ctx.date?new Date(ctx.date):new Date();
+    const due=new Date(baseDate); due.setMonth(due.getMonth()+months);
+    dueDate=fmtDate(due);
   } else {
-    dueOdo=parseInt($('rem-due-odo').value)||0;
-    if(!dueOdo){ errEl.textContent='Enter odometer value'; errEl.style.display='block'; return; }
+    const interval=parseInt($('rem-interval-odo').value)||10000;
+    const baseOdo=ctx&&ctx.odo?ctx.odo:0;
+    dueOdo=baseOdo+interval;
+    if(!dueOdo){ errEl.textContent='Enter odometer interval'; errEl.style.display='block'; return; }
   }
   const desc=$('rem-note').value.trim();
   const rec={label:label,dueType:typ,dueDate:dueDate,dueOdo:dueOdo,desc:desc,enabled:true};
+  // Store reference info if from a record
+  if(ctx){
+    rec.refLabel=ctx.refLabel||'';
+    rec.refDetail=ctx.refDetail||'';
+    rec.interval=(typ==='date'?($('rem-interval-val').value+' '+$('rem-interval-unit').value):($('rem-interval-odo').value+' km'));
+  }
   if(window._editingReminderId){
     remindRef(activeVehicle).child(window._editingReminderId).update(rec).then(()=>{
       closeReminderModal();

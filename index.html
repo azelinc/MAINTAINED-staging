@@ -136,13 +136,29 @@
             <datalist id="rem-label-suggestions"><option>Renew Insurance"><option>Renew Road Tax"><option>Oil Change"><option>Brake Service"><option>Tyre Rotation"><option>Air Filter"><option>Battery Check"><option>AC Service"></datalist>
           </div>
           <div class="field"><label>Reminder Type</label>
-            <select id="rem-type"><option value="date">Date-based</option><option value="odo">Odometer-based</option></select>
+            <select id="rem-type"><option value="date">Time-based</option><option value="odo">Odometer-based</option></select>
           </div>
-          <div class="field" id="rem-period-field"><label>Period</label>
-            <select id="rem-period"><option value="1m">1 month</option><option value="3m">3 months</option><option value="6m">6 months</option><option value="1y" selected>1 year</option><option value="2y">2 years</option><option value="custom">Custom date</option></select>
+          <div class="field" id="rem-interval-field">
+            <label>Interval</label>
+            <div style="display:flex;gap:8px;align-items:center">
+              <span style="color:var(--muted);font-size:0.75rem">Every</span>
+              <input type="number" id="rem-interval-val" value="12" min="1" style="width:60px;text-align:center">
+              <select id="rem-interval-unit" style="width:80px"><option value="months">months</option><option value="years">years</option></select>
+            </div>
           </div>
-          <div class="field hidden" id="rem-custom-date-field"><label>Due Date</label><input type="date" id="rem-due-date"></div>
-          <div class="field hidden" id="rem-odo-field"><label>Due at Odometer (km)</label><input type="number" id="rem-due-odo" placeholder="e.g. 25000"></div>
+          <div class="field hidden" id="rem-odo-interval-field">
+            <label>Interval</label>
+            <div style="display:flex;gap:8px;align-items:center">
+              <span style="color:var(--muted);font-size:0.75rem">Every</span>
+              <input type="number" id="rem-interval-odo" value="10000" min="100" step="1000" style="width:80px;text-align:center">
+              <span style="color:var(--muted);font-size:0.75rem">km</span>
+            </div>
+          </div>
+          <div class="field" id="rem-ref-info" style="display:none;background:var(--surface-2);border-radius:8px;padding:8px 10px;font-size:0.75rem;color:var(--muted)">
+            <div id="rem-ref-label"></div>
+            <div id="rem-ref-detail" style="margin-top:2px"></div>
+          </div>
+          <div class="field" id="rem-due-preview" style="color:var(--accent);font-size:0.8rem;font-weight:600"></div>
           <div class="field"><label>Note (optional)</label><input type="text" id="rem-note" placeholder="Optional note" autocomplete="off"></div>
         </div>
         <div id="rem-delete-confirm" class="hidden" style="text-align:center;padding:12px 0">
