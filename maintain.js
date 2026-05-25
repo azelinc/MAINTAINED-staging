@@ -23,7 +23,7 @@ let currentUser = null;
 let authReady = false;
 let activeVehicle = null;   // vehicle id
 let editingRecord = null;   // { type, vehicleId, recordId }
-let settings = { units:'metric', currency:'RM', modules:{fuel:true,service:true} };
+let settings = { units:'metric', currency:'RM', modules:{fuel:true,service:true,expenses:true,trips:true} };
 let _vehCallback = null;
 
 /* ─── HELPERS ─── */
@@ -75,12 +75,16 @@ function applyModules(){
   }
 }
 function setModule(key,on){
-  if(!settings.modules) settings.modules={fuel:true,service:true};
+  if(!settings.modules) settings.modules={fuel:true,service:true,expenses:true,trips:true};
   settings.modules[key]=!!on;
   saveSettings(currentUser.uid,'modules',settings.modules);
   applyModules();
   if($('dash-screen').classList.contains('active')) renderDash();
   if(activeVehicle && $('vehicle-screen').classList.contains('active')) loadVehicleTabs(activeVehicle);
+}
+function normalizeModules(){
+  if(!settings.modules) settings.modules={fuel:true,service:true,expenses:true,trips:true};
+  ['fuel','service','expenses','trips'].forEach(k=>{ if(settings.modules[k]===undefined) settings.modules[k]=true; });
 }
 
 /* ─── REF BUILDERS ─── */
@@ -113,7 +117,7 @@ function detachListeners(){
       loadUserProfile(user.uid).then(p=>{
         if(p?.name){ currentUser.name = p.name; }
         $('dash-greeting').textContent = currentUser.email;
-        loadSettings(user.uid).then(s=>{ if(s) settings = {...settings,...s}; });
+        loadSettings(user.uid).then(s=>{ if(s) settings = {...settings,...s}; normalizeModules(); });
         showScreen('dash-screen'); renderDash(); attachListeners(user.uid);
       });
     }
