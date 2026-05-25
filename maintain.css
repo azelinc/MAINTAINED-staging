@@ -300,6 +300,8 @@ html, body {
 /* ─── HERO CENTER ─── */
 #hero-service-block .hero-num,
 #hero-expense-block .hero-num { text-align: center; }
+#hero-service-block .hero-label,
+#hero-expense-block .hero-label { text-align: center; }
 
 /* ─── AMBER BADGE PULSE ─── */
 .vc-rem-badge.active { animation: overdueBadgeBlink 1.2s ease-in-out infinite; }

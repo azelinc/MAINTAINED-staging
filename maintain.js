@@ -53,7 +53,7 @@ function showScreen(id){
 function todayInput(){ $('fu-date').value=fmtDate(now()); $('mt-date').value=fmtDate(now()); $('ex-date').value=fmtDate(now()); $('tr-date').value=fmtDate(now()); }
 
 const VEHC_AUTO=['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899'];
-const VEHC_NAME={red:'#ef4444',orange:'#f97316',yellow:'#eab308',white:'#e5e7eb',silver:'#9ca3af',blue:'#3b82f6',black:'#6b7280'};
+const VEHC_NAME={red:'#ef4444',orange:'#f97316',yellow:'#eab308',white:'#e5e7eb',silver:'#9ca3af',blue:'#3b82f6',black:'#6b7280',grey:'#64748b'};
 function resolveVidColors(vehicles,vids){ const r={}; const taken=new Set(); vids.forEach(vid=>{ const c=vehicles[vid]&&vehicles[vid].color; if(c&&VEHC_NAME[c]){ if(!taken.has(VEHC_NAME[c])){r[vid]=VEHC_NAME[c];taken.add(VEHC_NAME[c]);}else{r[vid]=null;} }else{r[vid]=null;} }); let ai=0; vids.forEach(vid=>{ if(r[vid]) return; while(taken.has(VEHC_AUTO[ai%VEHC_AUTO.length])) ai++; r[vid]=VEHC_AUTO[ai%VEHC_AUTO.length]; taken.add(VEHC_AUTO[ai%VEHC_AUTO.length]); ai++; }); return r; }
 
 /* --- MODULE TOGGLE --- */
@@ -553,8 +553,12 @@ function computeAllInCostPerKm(vid){
     vRef().child(vid).once('value').then(vSnap=>{
       const v=vSnap.val()||{};
       const storedOdo=toNum(v.odometer);
-      if(storedOdo>maxOdo) maxOdo=storedOdo;
-      if(totalDist===0 && minOdo<maxOdo) totalDist=maxOdo-minOdo;
+      if(storedOdo>maxOdo){
+        if(totalDist>0) totalDist += (storedOdo - maxOdo);
+        else if(minOdo<maxOdo) totalDist = maxOdo - minOdo;
+        maxOdo = storedOdo;
+      }
+      if(totalDist===0 && minOdo<maxOdo) totalDist = maxOdo - minOdo;
       if(totalCost>0 && totalDist>0) $('stat-costkm').textContent=fmtMoney(totalCost/totalDist);
       else if(totalCost>0 && totalDist===0) $('stat-costkm').textContent='—';
     });
@@ -1304,7 +1308,7 @@ function openSettings(){
     var vids=Object.keys(vehicles);
     var h=vids.map(vid=>{
       var v=vehicles[vid]; var current=v.color||'';
-      var opts=['red','orange','yellow','white','silver','blue','black'].map(c=>'<option value="'+c+'" '+(current===c?'selected':'')+'>'+c+'</option>').join('');
+      var opts=['red','orange','yellow','white','silver','grey','blue','black'].map(c=>'<option value="'+c+'" '+(current===c?'selected':'')+'>'+c+'</option>').join('');
       return '<div class="inline-field" style="margin-bottom:6px"><span style="flex:1;font-size:0.85rem">'+esc(v.plate||vid)+' '+esc(v.make||'')+' '+esc(v.model||'')+'</span><select onchange="setVehicleColor(\''+esc(vid)+'\',this.value)" style="width:100px">'+opts+'</select></div>';
     }).join('');
     $('veh-color-list').innerHTML=h||'No vehicles';
