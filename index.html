@@ -275,7 +275,7 @@
         </div>
         <div class="amount-display" id="ex-amount">0.00</div>
       </div>
-      <div class="field"><label>Receipt</label><input type="file" id="ex-receipt" accept="image/*"></div>
+      <div class="field"><label>Receipt</label><input type="file" id="ex-receipt" accept="image/*,.pdf"><div id="ex-receipt-preview" class="receipt-preview hidden"></div></div>
       <button id="btn-save-expense" class="btn-primary btn-lg">Save Expense</button>
       <button id="btn-delete-expense" class="btn-danger btn-lg hidden">Delete</button>
     </div>
@@ -407,6 +407,7 @@
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
 <script src="maintain.js"></script>
 </body>
 </html>

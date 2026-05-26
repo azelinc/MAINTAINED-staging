@@ -16,7 +16,8 @@ const FIREBASE_CONFIG = {
 firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.database();
-const APP_VER = 'v1.32';
+const storage = firebase.storage();
+const APP_VER = 'v1.33';
 const STAGING = location.hostname.includes('-staging');
 
 /* ─── EARLY VERSION DISPLAY ─── */
@@ -30,6 +31,7 @@ let currentUser = null;
 let authReady = false;
 let activeVehicle = null;   // vehicle id
 let editingRecord = null;   // { type, vehicleId, recordId }
+let currentReceiptFile = null;   // File object for upload
 let settings = { units:'metric', currency:'RM', modules:{fuel:true,service:true,expenses:true,trips:true,reminders:true} };
 let _vehCallback = null;
 
@@ -508,7 +510,10 @@ function loadVehicleTabs(vid){
   exp2Ref(vid).once('value').then(s=>{
     const o=s.val()||{};
     let items=Object.entries(o).map(([id,r])=>({id,...r})).sort((a,b)=> (b.date||'').localeCompare(a.date||''));
-    $('expense-list').innerHTML = items.length ? items.map(r=>`<div class="item" data-eid="${esc(r.id)}"><div class="item-left"><div class="item-name">${esc(r.category||'Expense')}${r.description?' · '+esc(r.description):''}</div><div class="item-meta">${fmtDate2(r.date)}${r.odometer?' · Odo '+toNum(r.odometer).toLocaleString()+' km':''} <span class="remind-btn"><button class="btn-xs btn-ghost remind-exp-btn" data-label="${esc(r.category||'Expense')}${r.description?' · '+esc(r.description):''}" data-date="${r.date||''}" data-odo="${toNum(r.odometer)}" style="font-size:0.65rem">🔔</button></span></div></div><div class="item-amount">${fmtMoney(toNum(r.amount))}</div></div>`).join('') : '<div class="item"><div class="item-left"><div class="item-meta">No expenses</div></div></div>';
+    $('expense-list').innerHTML = items.length ? items.map(r=>{
+      const receiptIcon=r.receiptUrl?' <span style="font-size:0.7rem">📎</span>':'';
+      return '<div class="item" data-eid="'+esc(r.id)+'"><div class="item-left"><div class="item-name">'+esc(r.category||'Expense')+(r.description?' · '+esc(r.description):'')+receiptIcon+'</div><div class="item-meta">'+fmtDate2(r.date)+(r.odometer?' · Odo '+toNum(r.odometer).toLocaleString()+' km':'')+' <span class="remind-btn"><button class="btn-xs btn-ghost remind-exp-btn" data-label="'+esc(r.category||'Expense')+(r.description?' · '+esc(r.description):'')+'" data-date="'+(r.date||'')+'" data-odo="'+toNum(r.odometer)+'" style="font-size:0.65rem">🔔</button></span></div></div><div class="item-amount">'+fmtMoney(toNum(r.amount))+'</div></div>';
+    }).join('') : '<div class="item"><div class="item-left"><div class="item-meta">No expenses</div></div></div>';
     $('expense-list').querySelectorAll('.item[data-eid]').forEach(el=>el.addEventListener('click',()=>editExpense(vid,el.dataset.eid)));
     // 🔔 buttons
     $('expense-list').querySelectorAll('.remind-exp-btn').forEach(btn=>{
@@ -737,7 +742,7 @@ function editMaintenance(vid, mid){
 
 /* ─── EXPENSE FORM ─── */
 let exAmountStr='';
-function resetExpenseForm(){ todayInput(); $('ex-odo').value=''; populateCategorySelect('Insurance'); $('ex-desc').value=''; exAmountStr=''; $('ex-amount').textContent='0.00'; editingRecord=null; $('btn-delete-expense').classList.add('hidden');
+function resetExpenseForm(){ todayInput(); $('ex-odo').value=''; populateCategorySelect('Insurance'); $('ex-desc').value=''; exAmountStr=''; $('ex-amount').textContent='0.00'; editingRecord=null; currentReceiptFile=null; $('ex-receipt').value=''; $('ex-receipt-preview').innerHTML=''; $('ex-receipt-preview').classList.add('hidden'); $('btn-delete-expense').classList.add('hidden');
   if(activeVehicle) vRef().child(activeVehicle).once('value').then(s=>{ const v=s.val(); if(v) $('ex-odo').value=toNum(v.odometer)||''; }); }
 function handleExNumpad(k){
   if(k==='C') exAmountStr='';
@@ -748,25 +753,80 @@ function handleExNumpad(k){
 }
 $('add-expense-screen').querySelectorAll('.numpad button').forEach(b=>b.addEventListener('click',()=>handleExNumpad(b.dataset.k)));
 
+// Receipt file input handler
+$('ex-receipt').addEventListener('change', function(){
+  const file = this.files[0];
+  if (!file) { currentReceiptFile = null; $('ex-receipt-preview').classList.add('hidden'); return; }
+  currentReceiptFile = file;
+  const preview = $('ex-receipt-preview');
+  preview.innerHTML = '';
+  preview.classList.remove('hidden');
+  if (file.type.startsWith('image/')) {
+    const reader = new FileReader();
+    reader.onload = function(e){
+      preview.innerHTML = '<img src="'+e.target.result+'" alt="Receipt preview">';
+    };
+    reader.readAsDataURL(file);
+  } else {
+    preview.innerHTML = '<span class="file-badge">📄 '+file.name+'</span>';
+  }
+});
+
 $('btn-ex-back').addEventListener('click',()=>showScreen('vehicle-screen'));
 $('btn-save-expense').addEventListener('click',()=>{
   if(!activeVehicle) return;
   const amt=exAmountStr?parseFloat(exAmountStr):0;
-  const rec={ date:$('ex-date').value, odometer: toNum($('ex-odo').value)||null, category:$('ex-category').value, description:$('ex-desc').value.trim(), amount: amt, createdAt: firebase.database.ServerValue.TIMESTAMP };
   const key = editingRecord && editingRecord.type==='expense' ? editingRecord.recordId : exp2Ref(activeVehicle).push().key;
-  exp2Ref(activeVehicle).child(key).set(rec).then(()=>{ resetExpenseForm(); showScreen('vehicle-screen'); loadVehicleTabs(activeVehicle); });
+  const rec={ date:$('ex-date').value, odometer: toNum($('ex-odo').value)||null, category:$('ex-category').value, description:$('ex-desc').value.trim(), amount: amt, createdAt: firebase.database.ServerValue.TIMESTAMP };
+
+  const saveRec = () => {
+    exp2Ref(activeVehicle).child(key).set(rec).then(()=>{ resetExpenseForm(); showScreen('vehicle-screen'); loadVehicleTabs(activeVehicle); });
+  };
+
+  // Upload receipt if selected
+  if (currentReceiptFile) {
+    const ext = currentReceiptFile.name.split('.').pop() || 'jpg';
+    const storagePath = 'maintained/'+currentUser.uid+'/receipts/'+activeVehicle+'/'+key+'.'+ext;
+    const uploadTask = storage.ref(storagePath).put(currentReceiptFile);
+    uploadTask.on('state_changed', null, function(err){
+      console.error('Receipt upload failed:', err);
+      saveRec();
+    }, function(){
+      uploadTask.snapshot.ref.getDownloadURL().then(function(url){
+        rec.receiptUrl = url;
+        exp2Ref(activeVehicle).child(key).update({receiptUrl: url});
+        saveRec();
+      }).catch(function(){ saveRec(); });
+    });
+  } else {
+    saveRec();
+  }
 });
 $('btn-delete-expense').addEventListener('click',()=>{
   if(!editingRecord || !activeVehicle) return;
   if(!confirm('Delete this expense?')) return;
-  exp2Ref(activeVehicle).child(editingRecord.recordId).remove().then(()=>{ resetExpenseForm(); showScreen('vehicle-screen'); loadVehicleTabs(activeVehicle); });
+  // Delete receipt from storage if present
+  exp2Ref(activeVehicle).child(editingRecord.recordId).once('value').then(s=>{
+    const rec=s.val();
+    if(rec && rec.receiptUrl){
+      storage.refFromURL(rec.receiptUrl).delete().catch(function(){});
+    }
+    return exp2Ref(activeVehicle).child(editingRecord.recordId).remove();
+  }).then(()=>{ resetExpenseForm(); showScreen('vehicle-screen'); loadVehicleTabs(activeVehicle); });
 });
 
 function editExpense(vid, eid){
   exp2Ref(vid).child(eid).once('value').then(s=>{
     const o=s.val(); if(!o) return;
     editingRecord={type:'expense', vehicleId:vid, recordId:eid};
+    currentReceiptFile=null; $('ex-receipt').value='';
     $('ex-date').value=o.date||''; $('ex-odo').value=o.odometer||''; populateCategorySelect(o.category||'Insurance'); $('ex-desc').value=o.description||''; exAmountStr=o.amount?String(o.amount):''; $('ex-amount').textContent=exAmountStr?parseFloat(exAmountStr).toFixed(2):'0.00';
+    // Show existing receipt preview
+    var preview=$('ex-receipt-preview');
+    if(o.receiptUrl){
+      preview.innerHTML='<img src="'+o.receiptUrl+'" alt="Receipt">';
+      preview.classList.remove('hidden');
+    } else { preview.innerHTML=''; preview.classList.add('hidden'); }
     $('btn-delete-expense').classList.remove('hidden');
     showScreen('add-expense-screen');
   });
