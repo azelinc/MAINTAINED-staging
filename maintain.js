@@ -17,7 +17,7 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.database();
 const storage = firebase.storage();
-const APP_VER = 'v1.47';
+const APP_VER = 'v1.48';
 const STAGING = location.hostname.includes('-staging');
 
 /* ─── EARLY VERSION DISPLAY ─── */
@@ -1494,37 +1494,37 @@ $('btn-save-reminder').addEventListener('click',()=>{
     }
     const desc=$('rem-note').value.trim();
     var rec={label:label,dueType:typ,dueDate:dueDate,dueOdo:dueOdo,odoInterval:odoInterval||null,desc:desc,enabled:true,status:'active',createdAt:firebase.database.ServerValue.TIMESTAMP};
+    // Always compute interval label from form values
+    var usePerChip2=window._remBatchIds&&window._remBatchIds.length;
+    if(usePerChip2){
+      var id='rbi-'+idx;
+      if(typ==='date'){
+        var vEl=$(''+id+'-val'), uEl=$(''+id+'-unit');
+        var pval=vEl?parseInt(vEl.value)||12:12;
+        var punit=uEl?uEl.value:'months';
+        rec.interval=pval+' '+punit;
+      } else if(typ==='odo'){
+        var oEl=$(''+id+'-odo');
+        rec.interval=(oEl?parseInt(oEl.value)||10000:10000)+' km';
+      } else if(typ==='both'){
+        var vEl3=$(''+id+'-val'), uEl3=$(''+id+'-unit'), oEl3=$(''+id+'-odo');
+        var pval3=vEl3?parseInt(vEl3.value)||12:12;
+        var punit3=uEl3?uEl3.value:'months';
+        var oval3=oEl3?parseInt(oEl3.value)||10000:10000;
+        rec.interval=pval3+' '+punit3+' / '+oval3+' km';
+      }
+    } else {
+      if(typ==='date'){
+        rec.interval=$('rem-interval-val').value+' '+$('rem-interval-unit').value;
+      } else if(typ==='odo'){
+        rec.interval=$('rem-interval-odo').value+' km';
+      } else {
+        rec.interval=$('rem-interval-val').value+' '+$('rem-interval-unit').value+' / '+$('rem-interval-odo').value+' km';
+      }
+    }
     if(ctx){
       rec.refLabel=ctx.refLabel||'';
       rec.refDetail=ctx.refDetail||'';
-      // Compute per-chip interval label
-      var usePerChip2=window._remBatchIds&&window._remBatchIds.length;
-      if(usePerChip2){
-        var id='rbi-'+idx;
-        if(typ==='date'){
-          var vEl=$(''+id+'-val'), uEl=$(''+id+'-unit');
-          var pval=vEl?parseInt(vEl.value)||12:12;
-          var punit=uEl?uEl.value:'months';
-          rec.interval=pval+' '+punit;
-        } else if(typ==='odo'){
-          var oEl=$(''+id+'-odo');
-          rec.interval=(oEl?parseInt(oEl.value)||10000:10000)+' km';
-        } else if(typ==='both'){
-          var vEl3=$(''+id+'-val'), uEl3=$(''+id+'-unit'), oEl3=$(''+id+'-odo');
-          var pval3=vEl3?parseInt(vEl3.value)||12:12;
-          var punit3=uEl3?uEl3.value:'months';
-          var oval3=oEl3?parseInt(oEl3.value)||10000:10000;
-          rec.interval=pval3+' '+punit3+' / '+oval3+' km';
-        }
-      } else {
-        if(typ==='date'){
-          rec.interval=$('rem-interval-val').value+' '+$('rem-interval-unit').value;
-        } else if(typ==='odo'){
-          rec.interval=$('rem-interval-odo').value+' km';
-        } else {
-          rec.interval=$('rem-interval-val').value+' '+$('rem-interval-unit').value+' / '+$('rem-interval-odo').value+' km';
-        }
-      }
     }
     return rec;
   }
