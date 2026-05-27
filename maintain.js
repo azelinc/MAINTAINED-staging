@@ -17,7 +17,7 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.database();
 const storage = firebase.storage();
-const APP_VER = 'v1.34';
+const APP_VER = 'v1.35';
 const STAGING = location.hostname.includes('-staging');
 
 /* ─── EARLY VERSION DISPLAY ─── */
@@ -678,18 +678,10 @@ function editFillup(vid, fid){
 }
 
 /* ─── MAINTENANCE FORM ─── */
-let mtAmountStr='';
 let _mtAlsoSelected=new Set();
 let _mtAlsoNames=[];
-function resetMaintenanceForm(){ todayInput(); $('mt-odo').value=''; populateServiceItemSelect('Oil Change'); _mtAlsoSelected.clear(); if($('mt-also')) $('mt-also').innerHTML=''; $('mt-remarks').value=''; $('mt-shop').value=''; mtAmountStr=''; $('mt-amount').textContent='0.00'; $('mt-next-odo').value=''; $('mt-next-date').value=''; editingRecord=null; currentMtReceiptFile=null; $('mt-receipt').value=''; $('mt-receipt-preview').innerHTML=''; $('mt-receipt-preview').classList.add('hidden'); $('btn-delete-maintenance').classList.add('hidden');
+function resetMaintenanceForm(){ todayInput(); $('mt-odo').value=''; populateServiceItemSelect('Oil Change'); _mtAlsoSelected.clear(); if($('mt-also')) $('mt-also').innerHTML=''; $('mt-remarks').value=''; $('mt-shop').value=''; $('mt-amount').value=''; $('mt-next-odo').value=''; $('mt-next-date').value=''; editingRecord=null; currentMtReceiptFile=null; $('mt-receipt').value=''; $('mt-receipt-preview').innerHTML=''; $('mt-receipt-preview').classList.add('hidden'); $('btn-delete-maintenance').classList.add('hidden');
   if(activeVehicle) vRef().child(activeVehicle).once('value').then(s=>{ const v=s.val(); if(v) $('mt-odo').value=toNum(v.odometer)||''; });
-}
-function handleMtNumpad(k){
-  if(k==='C') mtAmountStr='';
-  else if(k==='.' && mtAmountStr.includes('.')) return;
-  else if(mtAmountStr.replace('.','').length>=7) return;
-  else mtAmountStr+=k;
-  $('mt-amount').textContent = mtAmountStr ? parseFloat(mtAmountStr).toFixed(2) : '0.00';
 }
 function _renderMtAlsoChips(){
   var grid=$('mt-also');
@@ -712,7 +704,6 @@ function _renderMtAlsoChips(){
   });
 }
 $('mt-items').addEventListener('change',function(){ _mtAlsoSelected.delete(this.value); _renderMtAlsoChips(); });
-$('add-maintenance-screen').querySelectorAll('.numpad button').forEach(b=>b.addEventListener('click',()=>handleMtNumpad(b.dataset.k)));
 
 // Service receipt file input handler
 $('mt-receipt').addEventListener('change', function(){
@@ -736,16 +727,21 @@ $('mt-receipt').addEventListener('change', function(){
 $('btn-mt-back').addEventListener('click',()=>showScreen('vehicle-screen'));
 $('btn-save-maintenance').addEventListener('click',()=>{
   if(!activeVehicle) return;
-  const odo=toNum($('mt-odo').value); const amt=mtAmountStr?parseFloat(mtAmountStr):0;
+  const odo=toNum($('mt-odo').value); const amt=toNum($('mt-amount').value);
   if(!$('mt-items').value.trim()){ alert('Please describe the service items'); return; }
   const key = editingRecord && editingRecord.type==='maintenance' ? editingRecord.recordId : maintRef(activeVehicle).push().key;
   const rec={ date:$('mt-date').value, odometer: odo, items: $('mt-items').value.trim(), alsoServiced: Array.from(_mtAlsoSelected).filter(x=>x!==$('mt-items').value.trim()), remarks: $('mt-remarks').value.trim(), shop: $('mt-shop').value.trim(), totalCost: amt, nextOdo: toNum($('mt-next-odo').value)||null, nextDate: $('mt-next-date').value||null, createdAt: firebase.database.ServerValue.TIMESTAMP };
 
   const saveRec = () => {
-    Promise.all([
-      maintRef(activeVehicle).child(key).set(rec),
-      vRef().child(activeVehicle).update({ odometer: odo, updatedAt: firebase.database.ServerValue.TIMESTAMP })
-    ]).then(()=>{ resetMaintenanceForm(); showScreen('vehicle-screen'); loadVehicleTabs(activeVehicle); });
+    // Only update vehicle odo if new value is higher than stored
+    vRef().child(activeVehicle).once('value').then(vSnap=>{
+      const storedOdo = toNum((vSnap.val()||{}).odometer);
+      const promises = [maintRef(activeVehicle).child(key).set(rec)];
+      if (odo > storedOdo) {
+        promises.push(vRef().child(activeVehicle).update({ odometer: odo, updatedAt: firebase.database.ServerValue.TIMESTAMP }));
+      }
+      Promise.all(promises).then(()=>{ resetMaintenanceForm(); showScreen('vehicle-screen'); loadVehicleTabs(activeVehicle); });
+    });
   };
 
   // Upload receipt if selected
@@ -789,7 +785,7 @@ function editMaintenance(vid, mid){
     const o=s.val(); if(!o) return;
     editingRecord={type:'maintenance', vehicleId:vid, recordId:mid};
     currentMtReceiptFile=null; $('mt-receipt').value='';
-    $('mt-date').value=o.date||''; $('mt-odo').value=o.odometer||''; populateServiceItemSelect(o.items||''); _mtAlsoSelected=new Set((o.alsoServiced||[]).filter(function(x){return x!==o.items;})); if(_mtAlsoNames.length) _renderMtAlsoChips(); $('mt-remarks').value=o.remarks||''; $('mt-shop').value=o.shop||''; mtAmountStr=o.totalCost?String(o.totalCost):''; $('mt-amount').textContent=mtAmountStr?parseFloat(mtAmountStr).toFixed(2):'0.00'; $('mt-next-odo').value=o.nextOdo||''; $('mt-next-date').value=o.nextDate||'';
+    $('mt-date').value=o.date||''; $('mt-odo').value=o.odometer||''; populateServiceItemSelect(o.items||''); _mtAlsoSelected=new Set((o.alsoServiced||[]).filter(function(x){return x!==o.items;})); if(_mtAlsoNames.length) _renderMtAlsoChips(); $('mt-remarks').value=o.remarks||''; $('mt-shop').value=o.shop||''; $('mt-amount').value=o.totalCost?o.totalCost.toFixed(2):''; $('mt-next-odo').value=o.nextOdo||''; $('mt-next-date').value=o.nextDate||'';
     // Show existing receipt preview
     var preview=$('mt-receipt-preview');
     if(o.receiptUrl){
@@ -802,17 +798,8 @@ function editMaintenance(vid, mid){
 }
 
 /* ─── EXPENSE FORM ─── */
-let exAmountStr='';
-function resetExpenseForm(){ todayInput(); $('ex-odo').value=''; populateCategorySelect('Insurance'); $('ex-desc').value=''; exAmountStr=''; $('ex-amount').textContent='0.00'; editingRecord=null; currentReceiptFile=null; $('ex-receipt').value=''; $('ex-receipt-preview').innerHTML=''; $('ex-receipt-preview').classList.add('hidden'); $('btn-delete-expense').classList.add('hidden');
+function resetExpenseForm(){ todayInput(); $('ex-odo').value=''; populateCategorySelect('Insurance'); $('ex-desc').value=''; $('ex-amount').value=''; editingRecord=null; currentReceiptFile=null; $('ex-receipt').value=''; $('ex-receipt-preview').innerHTML=''; $('ex-receipt-preview').classList.add('hidden'); $('btn-delete-expense').classList.add('hidden');
   if(activeVehicle) vRef().child(activeVehicle).once('value').then(s=>{ const v=s.val(); if(v) $('ex-odo').value=toNum(v.odometer)||''; }); }
-function handleExNumpad(k){
-  if(k==='C') exAmountStr='';
-  else if(k==='.' && exAmountStr.includes('.')) return;
-  else if(exAmountStr.replace('.','').length>=7) return;
-  else exAmountStr+=k;
-  $('ex-amount').textContent = exAmountStr ? parseFloat(exAmountStr).toFixed(2) : '0.00';
-}
-$('add-expense-screen').querySelectorAll('.numpad button').forEach(b=>b.addEventListener('click',()=>handleExNumpad(b.dataset.k)));
 
 // Receipt file input handler
 $('ex-receipt').addEventListener('change', function(){
@@ -836,12 +823,25 @@ $('ex-receipt').addEventListener('change', function(){
 $('btn-ex-back').addEventListener('click',()=>showScreen('vehicle-screen'));
 $('btn-save-expense').addEventListener('click',()=>{
   if(!activeVehicle) return;
-  const amt=exAmountStr?parseFloat(exAmountStr):0;
+  const amt=toNum($('ex-amount').value);
+  const expOdo=toNum($('ex-odo').value)||null;
   const key = editingRecord && editingRecord.type==='expense' ? editingRecord.recordId : exp2Ref(activeVehicle).push().key;
-  const rec={ date:$('ex-date').value, odometer: toNum($('ex-odo').value)||null, category:$('ex-category').value, description:$('ex-desc').value.trim(), amount: amt, createdAt: firebase.database.ServerValue.TIMESTAMP };
+  const rec={ date:$('ex-date').value, odometer: expOdo, category:$('ex-category').value, description:$('ex-desc').value.trim(), amount: amt, createdAt: firebase.database.ServerValue.TIMESTAMP };
 
   const saveRec = () => {
-    exp2Ref(activeVehicle).child(key).set(rec).then(()=>{ resetExpenseForm(); showScreen('vehicle-screen'); loadVehicleTabs(activeVehicle); });
+    // Only update vehicle odo if expense has an odo AND it's higher than stored
+    if (expOdo) {
+      vRef().child(activeVehicle).once('value').then(vSnap=>{
+        const storedOdo = toNum((vSnap.val()||{}).odometer);
+        const promises = [exp2Ref(activeVehicle).child(key).set(rec)];
+        if (expOdo > storedOdo) {
+          promises.push(vRef().child(activeVehicle).update({ odometer: expOdo, updatedAt: firebase.database.ServerValue.TIMESTAMP }));
+        }
+        Promise.all(promises).then(()=>{ resetExpenseForm(); showScreen('vehicle-screen'); loadVehicleTabs(activeVehicle); });
+      });
+    } else {
+      exp2Ref(activeVehicle).child(key).set(rec).then(()=>{ resetExpenseForm(); showScreen('vehicle-screen'); loadVehicleTabs(activeVehicle); });
+    }
   };
 
   // Upload receipt if selected
@@ -885,7 +885,7 @@ function editExpense(vid, eid){
     const o=s.val(); if(!o) return;
     editingRecord={type:'expense', vehicleId:vid, recordId:eid};
     currentReceiptFile=null; $('ex-receipt').value='';
-    $('ex-date').value=o.date||''; $('ex-odo').value=o.odometer||''; populateCategorySelect(o.category||'Insurance'); $('ex-desc').value=o.description||''; exAmountStr=o.amount?String(o.amount):''; $('ex-amount').textContent=exAmountStr?parseFloat(exAmountStr).toFixed(2):'0.00';
+    $('ex-date').value=o.date||''; $('ex-odo').value=o.odometer||''; populateCategorySelect(o.category||'Insurance'); $('ex-desc').value=o.description||''; $('ex-amount').value=o.amount?o.amount.toFixed(2):'';
     // Show existing receipt preview
     var preview=$('ex-receipt-preview');
     if(o.receiptUrl){

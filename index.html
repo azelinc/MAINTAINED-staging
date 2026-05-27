@@ -235,13 +235,7 @@
       <div class="field"><label>Shop</label><input type="text" id="mt-shop" placeholder="e.g. Toyota Service Centre" autocomplete="off"></div>
       <div class="field"><label>Receipt</label><input type="file" id="mt-receipt" accept="image/*,.pdf"><div id="mt-receipt-preview" class="receipt-preview hidden"></div></div>
       <div class="field"><label>Total Cost (RM)</label>
-        <div class="numpad">
-          <button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button>
-          <button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button>
-          <button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button>
-          <button data-k=".">.</button><button data-k="0">0</button><button data-k="C">C</button>
-        </div>
-        <div class="amount-display" id="mt-amount">0.00</div>
+        <input type="number" id="mt-amount" step="0.01" min="0" placeholder="0.00" autocomplete="off">
       </div>
       <div class="field"><label>Next Service Due (km)</label><input type="number" id="mt-next-odo" placeholder="Optional" autocomplete="off"></div>
       <div class="field"><label>Next Service Due (date)</label><input type="date" id="mt-next-date"></div>
@@ -268,13 +262,7 @@
       </div>
       <div class="field"><label>Description</label><input type="text" id="ex-desc" placeholder="Optional note" autocomplete="off"></div>
       <div class="field"><label>Amount (RM)</label>
-        <div class="numpad">
-          <button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button>
-          <button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button>
-          <button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button>
-          <button data-k=".">.</button><button data-k="0">0</button><button data-k="C">C</button>
-        </div>
-        <div class="amount-display" id="ex-amount">0.00</div>
+        <input type="number" id="ex-amount" step="0.01" min="0" placeholder="0.00" autocomplete="off">
       </div>
       <div class="field"><label>Receipt</label><input type="file" id="ex-receipt" accept="image/*,.pdf"><div id="ex-receipt-preview" class="receipt-preview hidden"></div></div>
       <button id="btn-save-expense" class="btn-primary btn-lg">Save Expense</button>
