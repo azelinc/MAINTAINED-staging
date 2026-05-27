@@ -17,7 +17,7 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.database();
 const storage = firebase.storage();
-const APP_VER = 'v1.39';
+const APP_VER = 'v1.40';
 const STAGING = location.hostname.includes('-staging');
 
 /* ─── EARLY VERSION DISPLAY ─── */
@@ -548,7 +548,7 @@ function loadVehicleTabs(vid){
     let items=Object.entries(o).map(([id,r])=>({id,...r})).sort((a,b)=> (b.date||'').localeCompare(a.date||''));
     $('maintenance-list').innerHTML = items.length ? items.map(r=>{
       const extras=(r.alsoServiced||[]).filter(x=>x!==r.items);
-      const extrasStr=extras.length?esc(JSON.stringify(extras)):'';
+      const extrasStr=extras.length?encodeURIComponent(JSON.stringify(extras)):'';
       const receiptIcon=r.receiptUrl?' <span style="font-size:0.7rem">📎</span>':'';
       return '<div class="item" data-mid="'+esc(r.id)+'"><div class="item-left"><div class="item-name">'+esc(r.items||'Service')+(extras.length?'<span style="color:var(--muted);font-size:0.68rem;margin-left:4px">+'+esc(extras.join(', '))+'</span>':'')+(r.remarks?' <span style="color:var(--muted);font-size:0.7rem;font-style:italic">'+esc(r.remarks)+'</span>':'')+receiptIcon+'</div><div class="item-meta">'+fmtDate2(r.date)+' · '+esc(r.shop||'')+' · Odo '+toNum(r.odometer).toLocaleString()+' <span class="remind-btn"><button class="btn-xs btn-ghost remind-svc-btn" data-label="'+esc(r.items||'Service')+'" data-date="'+(r.date||'')+'" data-odo="'+toNum(r.odometer)+'" data-extras="'+extrasStr+'" style="font-size:0.65rem">🔔</button></span></div></div><div class="item-amount">'+fmtMoney(toNum(r.totalCost))+'</div></div>';
     }).join('') : '<div class="item"><div class="item-left"><div class="item-meta">No service records</div></div></div>';
@@ -558,7 +558,7 @@ function loadVehicleTabs(vid){
       btn.addEventListener('click',e=>{
         e.stopPropagation();
         var extraItems=[];
-        try{ if(btn.dataset.extras) extraItems=JSON.parse(btn.dataset.extras); }catch(_){}
+        try{ if(btn.dataset.extras) extraItems=JSON.parse(decodeURIComponent(btn.dataset.extras)); }catch(_){}
         showReminderForm('add',null,null,{
           label:btn.dataset.label, date:btn.dataset.date, odo:parseInt(btn.dataset.odo)||0,
           refLabel:btn.dataset.label,

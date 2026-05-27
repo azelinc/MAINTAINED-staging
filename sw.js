@@ -1,4 +1,4 @@
-const CACHE_NAME = 'maintained-v36';
+const CACHE_NAME = 'maintained-v37';
 const FILES = [
   '/MAINTAINED/',
   '/MAINTAINED/index.html',
