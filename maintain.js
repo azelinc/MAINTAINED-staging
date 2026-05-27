@@ -17,7 +17,7 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.database();
 const storage = firebase.storage();
-const APP_VER = 'v1.46';
+const APP_VER = 'v1.47';
 const STAGING = location.hostname.includes('-staging');
 
 /* ─── EARLY VERSION DISPLAY ─── */
@@ -1259,16 +1259,28 @@ function showReminderForm(mode, rid, data, ctx){
     // Edit: pre-fill from existing reminder data
     $('rem-label').value=data.label||'';
     $('rem-type').value=data.dueType||'date';
-    // Pre-fill interval fields (can't recover original, use defaults)
+    // Pre-fill interval fields from stored interval string or odoInterval
+    if(data.odoInterval){
+      $('rem-interval-odo').value=data.odoInterval;
+    } else if(data.interval){
+      var odoMatch=data.interval.match(/(\d+)\s*km/);
+      if(odoMatch) $('rem-interval-odo').value=odoMatch[1];
+    }
     if(data.dueType==='odo'){
-      $('rem-interval-odo').value=10000;
+      if(!data.odoInterval) $('rem-interval-odo').value=10000;
     } else if(data.dueType==='both'){
-      $('rem-interval-val').value=12;
-      $('rem-interval-unit').value='months';
-      $('rem-interval-odo').value=10000;
+      if(data.interval){
+        var m=data.interval.match(/(\d+)\s*(months?|years?)/);
+        if(m){ $('rem-interval-val').value=m[1]; $('rem-interval-unit').value=m[2].startsWith('year')?'years':'months'; }
+      }
+      if(!data.interval){ $('rem-interval-val').value=12; $('rem-interval-unit').value='months'; }
+      if(!data.odoInterval&&!$('rem-interval-odo').value) $('rem-interval-odo').value=10000;
     } else {
-      $('rem-interval-val').value=12;
-      $('rem-interval-unit').value='months';
+      if(data.interval){
+        var m2=data.interval.match(/(\d+)\s*(months?|years?)/);
+        if(m2){ $('rem-interval-val').value=m2[1]; $('rem-interval-unit').value=m2[2].startsWith('year')?'years':'months'; }
+      }
+      if(!data.interval){ $('rem-interval-val').value=12; $('rem-interval-unit').value='months'; }
     }
     $('rem-note').value=data.desc||'';
     // Show reference from stored data if available
@@ -1328,6 +1340,7 @@ function closeReminderModal(){
   window._remModalMode='add';
   window._remCtx=null;
   window._remBatchItems=null;
+  window._remBatchIds=[];
 }
 
 function renderBatchChips(){
