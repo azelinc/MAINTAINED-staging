@@ -1,4 +1,4 @@
-/* v1.35 — numpad removed, mileage fix */
+/* v1.36 — login simplified */
 :root {
   --bg: #0b0f19;
   --surface: #111827;
@@ -40,8 +40,7 @@ html, body {
   padding: 14px 16px; border-radius: var(--radius); font-size: 1rem; margin-bottom: 12px; outline: none;
 }
 .login-box input:focus { border-color: var(--accent); }
-.pin-row { display: flex; gap: 8px; }
-.pin-row input { text-align: center; letter-spacing: 8px; font-size: 1.2rem; }
+
 .hint { color: var(--muted); font-size: 0.75rem; margin-top: 12px; }
 
 /* BUTTONS */

@@ -17,7 +17,7 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.database();
 const storage = firebase.storage();
-const APP_VER = 'v1.35';
+const APP_VER = 'v1.36';
 const STAGING = location.hostname.includes('-staging');
 
 /* ─── EARLY VERSION DISPLAY ─── */
@@ -168,23 +168,21 @@ $('login-password').addEventListener('keydown',e=>{ if(e.key==='Enter') doLogin(
 function doLogin(){
   const email=$('login-email').value.trim();
   const password=$('login-password').value;
-  const name=$('login-name').value.trim();
   if(!email||!password){ alert('Enter email and password'); return; }
   if(!authReady){ alert('Auth initializing, try again in 2 seconds'); return; }
   auth.signInWithEmailAndPassword(email, password)
-    .then(cred=>{ currentUser = { uid:cred.user.uid, name:name||cred.user.displayName||'User', email:cred.user.email }; if(name) saveUserProfile(cred.user.uid,name); $('dash-greeting').textContent=currentUser.email; showScreen('dash-screen'); renderDash(); attachListeners(cred.user.uid); })
+    .then(cred=>{ currentUser = { uid:cred.user.uid, name:cred.user.displayName||email.split('@')[0], email:cred.user.email }; $('dash-greeting').textContent=currentUser.email; showScreen('dash-screen'); renderDash(); attachListeners(cred.user.uid); })
     .catch(err=>{
       if(err.code==='auth/user-not-found'){
-        if(!name){ alert('Enter your name to create a new account'); return; }
         if(password.length<6){ alert('Password must be at least 6 characters'); return; }
         return auth.createUserWithEmailAndPassword(email,password)
-          .then(cred=>{ currentUser={uid:cred.user.uid,name,email:cred.user.email}; saveUserProfile(cred.user.uid,name); $('dash-greeting').textContent=currentUser.email; showScreen('dash-screen'); renderDash(); attachListeners(cred.user.uid); });
+          .then(cred=>{ currentUser={uid:cred.user.uid,name:email.split('@')[0],email:cred.user.email}; saveUserProfile(cred.user.uid,email.split('@')[0]); $('dash-greeting').textContent=currentUser.email; showScreen('dash-screen'); renderDash(); attachListeners(cred.user.uid); });
       }
       alert(err.message);
     });
 }
 
-$('btn-switch-user').addEventListener('click',()=>{ auth.signOut().then(()=>{ currentUser=null; activeVehicle=null; editingRecord=null; detachListeners(); $('login-email').value=''; $('login-name').value=''; $('login-password').value=''; showScreen('login-screen'); }); });
+$('btn-switch-user').addEventListener('click',()=>{ auth.signOut().then(()=>{ currentUser=null; activeVehicle=null; editingRecord=null; detachListeners(); $('login-email').value=''; $('login-password').value=''; showScreen('login-screen'); }); });
 
 /* ─── DASHBOARD ─── */
 function renderDash(){
