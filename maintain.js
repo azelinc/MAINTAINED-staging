@@ -17,7 +17,7 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.database();
 const storage = firebase.storage();
-const APP_VER = 'v1.48';
+const APP_VER = 'v1.49';
 const STAGING = location.hostname.includes('-staging');
 
 /* ─── EARLY VERSION DISPLAY ─── */
@@ -1168,11 +1168,21 @@ function renderReminderList(vid, items, rawO){
       if(daysRemaining<=0) isOverdue=true;
       else if(daysRemaining<=90) isUpcoming=true;
     }
-    // Odo-based: compute distance to go
+    // Odo-based: compute distance to go and set row coloring
     var odoRemaining=null;
     if(!isDone && (r.dueType==='odo'||r.dueType==='both') && r.dueOdo){
       var curOdo=toNum(window.vehicles_cache?.[vid]?.odometer);
-      if(curOdo>0) odoRemaining=r.dueOdo-curOdo;
+      if(curOdo>0){
+        odoRemaining=r.dueOdo-curOdo;
+        if(!isOverdue && !isUpcoming){
+          var odoInt3=r.odoInterval||5000;
+          var baseOdo3=r.dueOdo-odoInt3;
+          if(curOdo>=baseOdo3+odoInt3*0.8){  // 80% through the interval
+            if(odoRemaining<=0) isOverdue=true;
+            else isUpcoming=true;
+          }
+        }
+      }
     }
     var rowClass='';
     if(isOverdue) rowClass=' overdue';
