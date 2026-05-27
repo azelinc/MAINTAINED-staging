@@ -17,7 +17,7 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.database();
 const storage = firebase.storage();
-const APP_VER = 'v1.36';
+const APP_VER = 'v1.37';
 const STAGING = location.hostname.includes('-staging');
 
 /* ─── EARLY VERSION DISPLAY ─── */
@@ -307,16 +307,33 @@ function renderDash(){
       Promise.all(vids.map(vid=>remindRef(vid).once('value').then(s=>s.val()||{}))).then(remResults=>{
         remResults.forEach((reminders,i)=>{
           const vid=vids[i];
+          const v=vehicles[vid]||{};
           let activeCount=0, overdueCount=0;
           const nowDate=fmtDate(now());
+          const curOdo=toNum(v.odometer);
           Object.values(reminders).forEach(r=>{
             if(r.status==='completed'||r.enabled===false) return;
-            if(!r.dueDate) return;
-            var due=new Date(r.dueDate);
-            var daysRemaining=Math.ceil((due-now())/86400000);
-            if(daysRemaining>90) return; // only upcoming/overdue within 90 days
-            if(daysRemaining<=0) overdueCount++;
-            else activeCount++;
+            // Date-based
+            if(r.dueDate){
+              var due=new Date(r.dueDate);
+              var daysRemaining=Math.ceil((due-now())/86400000);
+              if(daysRemaining<=90){
+                if(daysRemaining<=0) overdueCount++;
+                else activeCount++;
+              }
+            }
+            // Odo-based: count if at 80%+ of target (only if date didn't already count this one)
+            if((r.dueType==='odo'||r.dueType==='both') && r.dueOdo && curOdo>0){
+              // For 'both' type, only add odo count if date is further away (>90d), to avoid double-counting
+              var alreadyCountedByDate = r.dueDate && (function(){
+                var d=new Date(r.dueDate);
+                return Math.ceil((d-now())/86400000)<=90;
+              })();
+              if(!alreadyCountedByDate && curOdo>=r.dueOdo*0.8){
+                if(curOdo>=r.dueOdo) overdueCount++;
+                else activeCount++;
+              }
+            }
           });
           const badge=$('vcrdot-'+vid);
           if(!badge) return;
@@ -941,14 +958,25 @@ function loadRemindersTicker(){
       var entries=[];
       results.forEach((reminders,i)=>{
         var vid=vids[i]; var v=vehicles[vid];
+        var curOdo=toNum(v.odometer);
         Object.values(reminders).forEach(r=>{
           if(r.enabled===false) return;
           if(r.status==='completed') return; // skip done
-          if(r.dueType==='date'||r.dueType==='both'){ // 'both' also has a dueDate
+          // Date-based (date or both type)
+          if((r.dueType==='date'||r.dueType==='both') && r.dueDate){
             var due=new Date(r.dueDate);
             var daysRemaining=Math.ceil((due-now())/86400000);
             var isOverdue=daysRemaining<=0;
             if(daysRemaining<=90) entries.push({vid:vid,plate:v.plate||vid,label:r.label,days:daysRemaining,isOverdue:isOverdue});
+          }
+          // Odo-based (odo or both type): warn at 80% of target
+          if((r.dueType==='odo'||r.dueType==='both') && r.dueOdo && curOdo>0){
+            var threshold=r.dueOdo*0.8;
+            if(curOdo>=threshold){
+              var odoRemaining=r.dueOdo-curOdo;
+              var isOverdue=odoRemaining<=0;
+              entries.push({vid:vid,plate:v.plate||vid,label:r.label+' (odo)',days:isOverdue?-1:Math.ceil(odoRemaining/100)*100,isOverdue:isOverdue,odoRemaining:odoRemaining});
+            }
           }
         });
       });
@@ -957,7 +985,12 @@ function loadRemindersTicker(){
       if(entries.length){
         ticker.classList.remove('hidden');
         $('reminder-ticker-inner').innerHTML=' ⚠ '+entries.map(e=>{
-          var txt=e.plate+': '+e.label+(e.isOverdue?' ('+Math.abs(e.days)+'d overdue)':(e.days>0?' (in '+e.days+'d)':' (today)'));
+          var txt;
+          if(e.odoRemaining!==undefined){
+            txt=e.plate+': '+e.label+(e.isOverdue?' ('+Math.abs(e.odoRemaining).toLocaleString()+' km over)':' (~'+Math.abs(e.odoRemaining).toLocaleString()+' km to go)');
+          } else {
+            txt=e.plate+': '+e.label+(e.isOverdue?' ('+Math.abs(e.days)+'d overdue)':(e.days>0?' (in '+e.days+'d)':' (today)'));
+          }
           return e.isOverdue?'<span style="color:var(--danger)">'+txt+'</span>':txt;
         }).join('  ·  ')+'  ·  ';
       } else { ticker.classList.add('hidden'); }
