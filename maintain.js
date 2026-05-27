@@ -17,7 +17,7 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.database();
 const storage = firebase.storage();
-const APP_VER = 'v1.37';
+const APP_VER = 'v1.38';
 const STAGING = location.hostname.includes('-staging');
 
 /* ─── EARLY VERSION DISPLAY ─── */
@@ -122,7 +122,30 @@ function exp2Ref(vid){ return uRef('expenses/'+vid); }
 function tripRef(vid){ return uRef('trips/'+vid); }
 function remindRef(vid){ return uRef('reminders/'+vid); }
 function catRef(){ return db.ref('maintained/'+currentUser.uid+'/categories'); }
-function svcItemRef(){ return db.ref('maintained/'+currentUser.uid+'/serviceItems'); }
+function svcItemRef(type){ return db.ref('maintained/'+currentUser.uid+'/serviceItems/'+(type||'car')); }
+
+/* ─── MIGRATION: old flat serviceItems → serviceItems/car ─── */
+function migrateServiceItems(uid){
+  var oldRef = db.ref('maintained/'+uid+'/serviceItems');
+  oldRef.once('value').then(s=>{
+    var data = s.val();
+    if(!data) return;
+    // Check if it's the new structure (has 'car' or 'motorcycle' subkeys)
+    if(data.car || data.motorcycle) return;
+    // Old flat structure detected — move to /car
+    var entries = Object.entries(data);
+    if(!entries.length) return;
+    var carRef = db.ref('maintained/'+uid+'/serviceItems/car');
+    var updates = {};
+    entries.forEach(([k,v])=>{ updates[k]=v; });
+    carRef.update(updates).then(()=>{
+      // Delete old flat keys
+      var deletes = {};
+      Object.keys(data).forEach(k=>{ deletes[k]=null; });
+      oldRef.update(deletes);
+    });
+  });
+}
 
 /* ─── LISTENERS ─── */
 function attachListeners(uid){
@@ -148,6 +171,8 @@ function detachListeners(){
         $('dash-greeting').textContent = currentUser.email;
         loadSettings(user.uid).then(s=>{ if(s) settings = {...settings,...s}; normalizeModules(); });
         showScreen('dash-screen'); renderDash(); attachListeners(user.uid);
+        // Migrate old flat serviceItems → serviceItems/car
+        migrateServiceItems(user.uid);
       });
     }
   }else{
@@ -342,6 +367,24 @@ function renderDash(){
             badge.className='vc-rem-badge '+(overdueCount>0?'overdue':'active');
             badge.textContent=total;
             badge.title=(overdueCount>0?overdueCount+' overdue':'')+(overdueCount>0&&activeCount>0?', ':'')+(activeCount>0?activeCount+' upcoming':'')+' reminder'+(total>1?'s':'');
+            badge.style.cursor='pointer';
+            badge.onclick=function(e){
+              e.stopPropagation();
+              if(window.vehicles_cache && window.vehicles_cache[vid]){
+                openVehicle(vid, window.vehicles_cache[vid]);
+                // Activate reminders tab
+                setTimeout(function(){
+                  document.querySelectorAll('.tab-btn').forEach(function(t){t.classList.remove('active');});
+                  document.querySelectorAll('.tab-panel').forEach(function(p){p.classList.remove('active');});
+                  var remTab=document.querySelector('.tab-btn[data-tab=\'reminders\']');
+                  if(remTab){ remTab.classList.add('active'); }
+                  var remPanel=$('tab-reminders');
+                  if(remPanel){ remPanel.classList.add('active'); }
+                  var fab=$('btn-add-record');
+                  if(fab) fab.classList.remove('hidden');
+                }, 100);
+              }
+            };
           }
         });
       });
@@ -1412,69 +1455,82 @@ $('btn-cat-add').addEventListener('click',()=>{
 });
 
 /* ─── SERVICE ITEMS ─── */
-function renderServiceItemManager(){
-  svcItemRef().once('value').then(s=>{
+function renderServiceItemsForType(vType, listId, inputId, btnId){
+  var prefix=(vType==='motorcycle'?'🏍️ ':'🚗 ');
+  svcItemRef(vType).once('value').then(s=>{
     var items=s.val()||{};
     var entries=Object.entries(items);
     entries.sort((a,b)=>a[1].localeCompare(b[1]));
-    var h=entries.map(([id,name])=>`<div class="cat-row" data-sid="${esc(id)}">
-      <span class="cat-row-name">${esc(name)}</span>
-      <span class="cat-row-edit" title="Edit">✎</span>
-      <span class="cat-row-del" title="Delete">&times;</span>
-    </div>`).join('');
-    $('svc-item-list').innerHTML=h||'<div style="color:var(--muted);font-size:0.8rem">No items yet</div>';
+    var h=entries.map(([id,name])=>'<div class="cat-row" data-sid="'+esc(id)+'" data-type="'+vType+'"><span class="cat-row-name">'+esc(name)+'</span><span class="cat-row-edit" title="Edit">✎</span><span class="cat-row-del" title="Delete">&times;</span></div>').join('');
+    $(listId).innerHTML=h||'<div style="color:var(--muted);font-size:0.8rem">No items yet</div>';
     function startEdit(el, sid, curName){
       var inp=document.createElement('input');
       inp.type='text'; inp.value=curName; inp.style.cssText='flex:1;font-size:0.85rem;padding:2px 4px;background:var(--surface-2);border:1px solid var(--border);border-radius:4px;color:var(--text)';
       el.parentNode.replaceChild(inp,el);
       inp.focus(); inp.select();
-      inp.addEventListener('blur',()=>{ var n=inp.value.trim(); if(n) svcItemRef().child(sid).set(n).then(()=>renderServiceItemManager()); });
-      inp.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); var n=inp.value.trim(); if(n) svcItemRef().child(sid).set(n).then(()=>renderServiceItemManager()); } });
+      inp.addEventListener('blur',()=>{ var n=inp.value.trim(); if(n) svcItemRef(vType).child(sid).set(n).then(()=>renderServiceItemsForType(vType,listId,inputId,btnId)); });
+      inp.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); var n=inp.value.trim(); if(n) svcItemRef(vType).child(sid).set(n).then(()=>renderServiceItemsForType(vType,listId,inputId,btnId)); } });
     }
-    $('svc-item-list').querySelectorAll('.cat-row-name').forEach(el=>{
+    $(listId).querySelectorAll('.cat-row-name').forEach(el=>{
       el.addEventListener('click',()=>startEdit(el,el.parentNode.dataset.sid,el.textContent));
     });
-    $('svc-item-list').querySelectorAll('.cat-row-edit').forEach(el=>{
+    $(listId).querySelectorAll('.cat-row-edit').forEach(el=>{
       el.addEventListener('click',e=>{
         e.stopPropagation();
         var row=el.parentNode; var nameEl=row.querySelector('.cat-row-name');
         startEdit(nameEl,row.dataset.sid,nameEl.textContent);
       });
     });
-    $('svc-item-list').querySelectorAll('.cat-row-del').forEach(el=>{
+    $(listId).querySelectorAll('.cat-row-del').forEach(el=>{
       el.addEventListener('click',()=>{
-        svcItemRef().child(el.parentNode.dataset.sid).remove().then(()=>renderServiceItemManager());
+        svcItemRef(vType).child(el.parentNode.dataset.sid).remove().then(()=>renderServiceItemsForType(vType,listId,inputId,btnId));
       });
     });
   });
 }
 
+function renderServiceItemManager(){
+  renderServiceItemsForType('car','svc-car-list','svc-car-input','btn-svc-car-add');
+  renderServiceItemsForType('motorcycle','svc-mc-list','svc-mc-input','btn-svc-mc-add');
+}
+
 function populateServiceItemSelect(selectedVal){
   var sel=$('mt-items');
   if(!sel) return;
-  svcItemRef().once('value').then(s=>{
+  // Determine vehicle type from active vehicle
+  var vType='car';
+  if(activeVehicle && window.vehicles_cache && window.vehicles_cache[activeVehicle]){
+    vType = window.vehicles_cache[activeVehicle].vehicleType==='Motorcycle' ? 'motorcycle' : 'car';
+  }
+  svcItemRef(vType).once('value').then(s=>{
     var items=s.val()||{};
     var names=Object.values(items);
-    if(!names.length) names=['Oil Change','Engine Oil','Oil Filter','Air Filter','Brake Pads','Spark Plugs','Tyre Rotation','AC Service','Battery','General Service'];
+    if(!names.length) {
+      names = vType==='motorcycle'
+        ? ['Oil Change','Chain Lube','Sprocket Check','Brake Pads','Spark Plug','Tyre Rotation','Battery','General Service']
+        : ['Oil Change','Engine Oil','Oil Filter','Air Filter','Brake Pads','Spark Plugs','Tyre Rotation','AC Service','Battery','General Service'];
+    }
     names.sort();
-    sel.innerHTML=names.map(n=>`<option value="${esc(n)}" ${n===selectedVal?'selected':''}>${esc(n)}</option>`).join('');
+    sel.innerHTML=names.map(n=>'<option value="'+esc(n)+'" '+(n===selectedVal?'selected':'')+'>'+esc(n)+'</option>').join('');
     if(selectedVal && !names.includes(selectedVal)){
-      sel.innerHTML+=`<option value="${esc(selectedVal)}" selected>${esc(selectedVal)}</option>`;
+      sel.innerHTML+='<option value="'+esc(selectedVal)+'" selected>'+esc(selectedVal)+'</option>';
     }
     _mtAlsoNames=names;
     if($('mt-also')) _renderMtAlsoChips();
   });
 }
 
-$('btn-svc-item-add').addEventListener('click',()=>{
-  var inp=$('svc-item-input');
+function addSvcItem(vType, inputId, listId, btnId){
+  var inp=$(inputId);
   var name=inp.value.trim();
   if(!name) return;
-  svcItemRef().push().set(name).then(()=>{
+  svcItemRef(vType).push().set(name).then(()=>{
     inp.value='';
-    renderServiceItemManager();
+    renderServiceItemsForType(vType, listId, inputId, btnId);
   });
-});
+}
+$('btn-svc-car-add').addEventListener('click',()=>addSvcItem('car','svc-car-input','svc-car-list','btn-svc-car-add'));
+$('btn-svc-mc-add').addEventListener('click',()=>addSvcItem('motorcycle','svc-mc-input','svc-mc-list','btn-svc-mc-add'));
 
 /* ─── SETTINGS ─── */
 $('btn-settings').addEventListener('click',openSettings);
