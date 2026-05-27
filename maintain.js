@@ -17,7 +17,7 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.database();
 const storage = firebase.storage();
-const APP_VER = 'v1.44';
+const APP_VER = 'v1.45';
 const STAGING = location.hostname.includes('-staging');
 
 /* ─── EARLY VERSION DISPLAY ─── */
@@ -347,14 +347,16 @@ function renderDash(){
                 else activeCount++;
               }
             }
-            // Odo-based: count if at 80%+ of target (only if date didn't already count this one)
+            // Odo-based: count if at 80%+ through the interval (only if date didn't already count this one)
             if((r.dueType==='odo'||r.dueType==='both') && r.dueOdo && curOdo>0){
               // For 'both' type, only add odo count if date is further away (>90d), to avoid double-counting
               var alreadyCountedByDate = r.dueDate && (function(){
                 var d=new Date(r.dueDate);
                 return Math.ceil((d-now())/86400000)<=90;
               })();
-              if(!alreadyCountedByDate && curOdo>=r.dueOdo*0.8){
+              var odoInt2=r.odoInterval||5000;
+              var baseOdo2=r.dueOdo-odoInt2;
+              if(!alreadyCountedByDate && curOdo>=baseOdo2+odoInt2*0.8){
                 if(curOdo>=r.dueOdo) overdueCount++;
                 else activeCount++;
               }
