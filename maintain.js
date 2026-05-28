@@ -743,7 +743,7 @@ function editFillup(vid, fid){
 /* ─── MAINTENANCE FORM ─── */
 let _mtAlsoSelected=new Set();
 let _mtAlsoNames=[];
-function resetMaintenanceForm(){ todayInput(); $('mt-odo').value=''; populateServiceItemSelect('Oil Change'); _mtAlsoSelected.clear(); if($('mt-also')) $('mt-also').innerHTML=''; $('mt-remarks').value=''; $('mt-shop').value=''; $('mt-amount').value=''; $('mt-next-odo').value=''; $('mt-next-date').value=''; editingRecord=null; currentMtReceiptFile=null; $('mt-receipt').value=''; $('mt-receipt-preview').innerHTML=''; $('mt-receipt-preview').classList.add('hidden'); $('btn-delete-maintenance').classList.add('hidden');
+function resetMaintenanceForm(){ todayInput(); $('mt-odo').value=''; populateServiceItemSelect('Oil Change'); _mtAlsoSelected.clear(); if($('mt-also')) $('mt-also').innerHTML=''; $('mt-remarks').value=''; $('mt-shop').value=''; $('mt-amount').value=''; $('mt-next-odo').value=''; $('mt-next-date').value=''; $('mt-autoremind').checked=false; editingRecord=null; currentMtReceiptFile=null; $('mt-receipt').value=''; $('mt-receipt-preview').innerHTML=''; $('mt-receipt-preview').classList.add('hidden'); $('btn-delete-maintenance').classList.add('hidden');
   if(activeVehicle) vRef().child(activeVehicle).once('value').then(s=>{ const v=s.val(); if(v) $('mt-odo').value=toNum(v.odometer)||''; });
 }
 function _renderMtAlsoChips(){
@@ -788,6 +788,19 @@ $('mt-receipt').addEventListener('change', function(){
 });
 
 $('btn-mt-back').addEventListener('click',()=>showScreen('vehicle-screen'));
+
+// Auto-check reminder checkbox when nextOdo/nextDate is filled
+['input','change'].forEach(ev=>{
+  $('mt-next-odo').addEventListener(ev,()=>{
+    const hasVal=!!$('mt-next-odo').value.trim()||!!$('mt-next-date').value;
+    $('mt-autoremind').checked=hasVal;
+  });
+  $('mt-next-date').addEventListener(ev,()=>{
+    const hasVal=!!$('mt-next-odo').value.trim()||!!$('mt-next-date').value;
+    $('mt-autoremind').checked=hasVal;
+  });
+});
+
 $('btn-save-maintenance').addEventListener('click',()=>{
   if(!activeVehicle) return;
   const odo=toNum($('mt-odo').value); const amt=toNum($('mt-amount').value);
@@ -803,7 +816,19 @@ $('btn-save-maintenance').addEventListener('click',()=>{
       if (odo > storedOdo) {
         promises.push(vRef().child(activeVehicle).update({ odometer: odo, updatedAt: firebase.database.ServerValue.TIMESTAMP }));
       }
-      Promise.all(promises).then(()=>{ resetMaintenanceForm(); showScreen('vehicle-screen'); loadVehicleTabs(activeVehicle); });
+      Promise.all(promises).then(()=>{
+        // Auto-create reminders if checkbox checked and due date/odo set
+        if($('mt-autoremind').checked && (rec.nextDate || rec.nextOdo)){
+          const labels = [rec.items, ...Array.from(_mtAlsoSelected||[]).filter(x=>x!==rec.items)];
+          labels.forEach(lbl=>{
+            remindRef(activeVehicle).push().set({
+              label: lbl, date: rec.date, odometer: rec.odometer,
+              type: 'service', dueDate: rec.nextDate||null, dueOdo: rec.nextOdo||null,
+              enabled: true, status: 'active', createdAt: firebase.database.ServerValue.TIMESTAMP
+            });
+          });
+        }
+        resetMaintenanceForm(); showScreen('vehicle-screen'); loadVehicleTabs(activeVehicle); });
     });
   };
 
