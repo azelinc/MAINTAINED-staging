@@ -17,7 +17,7 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.database();
 const storage = firebase.storage();
-const APP_VER = 'v1.51';
+const APP_VER = 'v1.52';
 const STAGING = location.hostname.includes('-staging');
 
 /* ─── EARLY VERSION DISPLAY ─── */
@@ -831,6 +831,9 @@ $('btn-save-maintenance').addEventListener('click',()=>{
         }
         Promise.all(remPromises).then(()=>{
           resetMaintenanceForm(); showScreen('vehicle-screen'); loadVehicleTabs(activeVehicle);
+        }).catch(function(err){
+          console.error('Auto-reminder save failed:', err);
+          resetMaintenanceForm(); showScreen('vehicle-screen'); loadVehicleTabs(activeVehicle);
         });
       });
     });
@@ -1351,6 +1354,9 @@ function showReminderForm(mode, rid, data, ctx){
     $('rem-note').value='';
     $('rem-ref-info').style.display='none';
     $('rem-batch-items').style.display='none';
+    $('rem-batch-chips').innerHTML='';
+    window._remBatchItems=null;
+    window._remBatchIds=[];
   }
   updateRemFormFields();
   updateRemDuePreview();
@@ -1380,6 +1386,7 @@ function closeReminderModal(){
   window._remCtx=null;
   window._remBatchItems=null;
   window._remBatchIds=[];
+  $('rem-batch-chips').innerHTML='';
 }
 
 function renderBatchChips(){
@@ -1593,7 +1600,11 @@ $('btn-save-reminder').addEventListener('click',()=>{
     Promise.all(promises).then(()=>{
       closeReminderModal();
       loadVehicleReminders(activeVehicle);
-    }).catch(function(){});
+    }).catch(function(err){
+      console.error('Reminder save failed:', err);
+      $('rem-error').textContent='Save failed: '+(err&&err.message?err.message:err);
+      $('rem-error').style.display='block';
+    });
   }
 });
 
