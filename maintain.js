@@ -17,7 +17,7 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.database();
 const storage = firebase.storage();
-const APP_VER = 'v1.52';
+const APP_VER = 'v1.53';
 const STAGING = location.hostname.includes('-staging');
 
 /* ─── EARLY VERSION DISPLAY ─── */
@@ -1124,6 +1124,7 @@ function loadVehicleReminders(vid){
   remindRef(vid).once('value').then(s=>{
     var o=s.val()||{};
     var items=Object.entries(o).map(function(e){ return Object.assign({id:e[0]},e[1]); });
+    console.log('loadVehicleReminders raw:', Object.keys(o).length, 'items for vid', vid);
     // Auto-detect completion: fetch expenses & services for this vehicle
     Promise.all([
       exp2Ref(vid).once('value').then(s=>s.val()||{}),
@@ -1178,12 +1179,14 @@ function loadVehicleReminders(vid){
         }
       });
       // Render
+      console.log('renderReminderList: rendering', items.length, 'items');
       renderReminderList(vid, items, o);
     });
   });
 }
 
 function renderReminderList(vid, items, rawO){
+  console.log('renderReminderList called, items:', items.length, 'first:', items[0]?.label);
   items.sort((a,b)=>{
     if(a.status==='completed' && b.status!=='completed') return 1;
     if(a.status!=='completed' && b.status==='completed') return -1;
@@ -1598,6 +1601,7 @@ $('btn-save-reminder').addEventListener('click',()=>{
       return remindRef(activeVehicle).push().set(rec);
     });
     Promise.all(promises).then(()=>{
+      console.log('Reminder save OK, refreshing list for', activeVehicle);
       closeReminderModal();
       loadVehicleReminders(activeVehicle);
     }).catch(function(err){
